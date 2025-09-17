@@ -4,6 +4,7 @@ import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import PersonalDataForm from "@/components/PersonalDataForm";
 import MobileStepper from "@/components/MobileStepper";
+import WelcomeModal from "@/components/WelcomeModal";
 
 const steps = [
   { number: 1, title: "Dados pessoais", completed: false },
@@ -55,10 +56,32 @@ const PersonalDataPage = () => {
     console.log("Navigate back");
   };
 
+  const handleWelcomeStart = () => {
+    // Start fresh questionnaire
+    toast({
+      title: "Iniciando questionário",
+      description: "Vamos começar com seus dados pessoais.",
+    });
+  };
+
+  const handleWelcomeContinue = () => {
+    // Continue existing questionnaire
+    toast({
+      title: "Continuando questionário",
+      description: "Retomando de onde você parou.",
+    });
+  };
+
   const isFormValid = formData.name && formData.age && formData.occupation && formData.education && formData.yearsInAgriculture;
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <>
+      <WelcomeModal 
+        onStart={handleWelcomeStart}
+        onContinue={handleWelcomeContinue}
+      />
+      
+      <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar */}
       <FormSidebar currentStep={currentStep} steps={steps} />
       
@@ -88,6 +111,7 @@ const PersonalDataPage = () => {
         </FormStep>
       </div>
     </div>
+    </>
   );
 };
 
