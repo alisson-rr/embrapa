@@ -24,20 +24,20 @@ const FormStep = ({
   isNextDisabled = false
 }: FormStepProps) => {
   return (
-    <main className="flex-1 bg-background min-h-screen p-6 lg:p-12">
+    <main className="flex-1 min-h-screen p-6 lg:p-12">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-primary mb-2">
             {title}
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-lg text-gray-600">
             {subtitle}
           </p>
         </header>
 
         {/* Form Card */}
-        <Card className="p-8 bg-form-bg shadow-[var(--shadow-form)] border-0">
+        <Card className="p-8 bg-white shadow-lg border-0 rounded-2xl">
           {children}
         </Card>
 
@@ -47,7 +47,7 @@ const FormStep = ({
             <Button 
               variant="outline" 
               onClick={onBack}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 rounded-xl border-2 border-gray-300 hover:border-primary hover:text-primary"
             >
               <ChevronLeft className="w-4 h-4" />
               Voltar
@@ -60,7 +60,7 @@ const FormStep = ({
             <Button 
               onClick={onNext}
               disabled={isNextDisabled}
-              className="flex items-center gap-2 bg-primary hover:bg-primary-light"
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 rounded-xl px-6 py-2.5"
             >
               Prosseguir
               <ChevronRight className="w-4 h-4" />

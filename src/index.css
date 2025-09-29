@@ -110,6 +110,7 @@ All colors MUST be HSL.
   .form-input {
     @apply h-12 text-base border-input bg-form-bg transition-smooth focus-ring;
   }
+
 }
 
 @layer base {

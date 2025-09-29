@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ interface PersonalDataFormData {
 interface PersonalDataFormProps {
   onSubmit: (data: PersonalDataFormData) => void;
   initialData?: Partial<PersonalDataFormData>;
+  onValidationChange?: (isValid: boolean) => void;
 }
 
 const educationOptions = [
@@ -27,7 +28,7 @@ const educationOptions = [
   { value: "tecnico-completo", label: "Técnico Completo" },
 ];
 
-const PersonalDataForm = ({ onSubmit, initialData = {} }: PersonalDataFormProps) => {
+const PersonalDataForm = ({ onSubmit, initialData = {}, onValidationChange }: PersonalDataFormProps) => {
   const [formData, setFormData] = useState<PersonalDataFormData>({
     name: initialData.name || "",
     age: initialData.age || "",
@@ -36,8 +37,15 @@ const PersonalDataForm = ({ onSubmit, initialData = {} }: PersonalDataFormProps)
     yearsInAgriculture: initialData.yearsInAgriculture || "",
   });
 
+  // Check initial validation
+  useEffect(() => {
+    const isValid = !!(formData.name && formData.age && formData.occupation && formData.education && formData.yearsInAgriculture);
+    onValidationChange?.(isValid);
+  }, [formData, onValidationChange]);
+
   const handleInputChange = (field: keyof PersonalDataFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -76,6 +84,11 @@ const PersonalDataForm = ({ onSubmit, initialData = {} }: PersonalDataFormProps)
           placeholder="Digite a sua idade"
           value={formData.age}
           onChange={(e) => handleInputChange("age", e.target.value)}
+          onKeyPress={(e) => {
+            if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
+              e.preventDefault();
+            }
+          }}
           className="form-input"
           min="1"
           max="120"
@@ -133,6 +146,11 @@ const PersonalDataForm = ({ onSubmit, initialData = {} }: PersonalDataFormProps)
           placeholder="Digite"
           value={formData.yearsInAgriculture}
           onChange={(e) => handleInputChange("yearsInAgriculture", e.target.value)}
+          onKeyPress={(e) => {
+            if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
+              e.preventDefault();
+            }
+          }}
           className="form-input"
           min="0"
           max="100"

@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { usePersonalData } from "@/hooks/useFormStorage";
 import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import PersonalDataForm from "@/components/PersonalDataForm";
@@ -25,22 +27,21 @@ interface PersonalDataFormData {
 
 const PersonalDataPage = () => {
   const [currentStep] = useState(1);
-  const [formData, setFormData] = useState<PersonalDataFormData>({
-    name: "",
-    age: "",
-    occupation: "",
-    education: "",
-    yearsInAgriculture: "",
-  });
+  const navigate = useNavigate();
+  const [isFormValid, setIsFormValid] = useState(false);
   const { toast } = useToast();
+  const { data: personalData, saveData: savePersonalData } = usePersonalData();
 
   const handleFormSubmit = (data: PersonalDataFormData) => {
-    setFormData(data);
-    // Here you would typically navigate to the next step
+    savePersonalData(data);
     toast({
       title: "Dados salvos com sucesso!",
       description: "Prosseguindo para a próxima etapa...",
     });
+    // Navigate to next step
+    setTimeout(() => {
+      navigate('/property-info');
+    }, 1000);
   };
 
   const handleNext = () => {
@@ -72,7 +73,6 @@ const PersonalDataPage = () => {
     });
   };
 
-  const isFormValid = formData.name && formData.age && formData.occupation && formData.education && formData.yearsInAgriculture;
 
   return (
     <>
@@ -81,12 +81,12 @@ const PersonalDataPage = () => {
         onContinue={handleWelcomeContinue}
       />
       
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen bg-gray-50">
       {/* Desktop Sidebar */}
       <FormSidebar currentStep={currentStep} steps={steps} />
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:pl-0 pl-4 pr-4">
         {/* Mobile Stepper */}
         <MobileStepper 
           currentStep={currentStep} 
@@ -106,7 +106,8 @@ const PersonalDataPage = () => {
         >
           <PersonalDataForm
             onSubmit={handleFormSubmit}
-            initialData={formData}
+            initialData={personalData}
+            onValidationChange={setIsFormValid}
           />
         </FormStep>
       </div>
