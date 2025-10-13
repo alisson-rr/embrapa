@@ -83,6 +83,15 @@ export interface SocialFormData {
   technicalAssistance: string;
 }
 
+export interface EnvironmentalFormData {
+  organicMatterPercentage: string;
+  calciumQuantity: string;
+  cultures: any[];
+  pastures: any[];
+  monthlyFuelConsumption: string;
+  monthlyElectricityExpense: string;
+}
+
 // Hook para gerenciar localStorage de cada etapa
 export const useFormStorage = () => {
   // Função para salvar dados no localStorage
@@ -108,7 +117,7 @@ export const useFormStorage = () => {
   // Função para limpar todos os dados
   const clearAllData = () => {
     try {
-      const keys = ['personal-data', 'property-data', 'economic-data', 'social-data'];
+      const keys = ['personal-data', 'property-data', 'economic-data', 'social-data', 'environmental-data'];
       keys.forEach(key => localStorage.removeItem(`embrapa-${key}`));
     } catch (error) {
       console.error('Erro ao limpar dados:', error);
@@ -256,6 +265,31 @@ export const useSocialData = () => {
   const saveData = (newData: SocialFormData) => {
     setData(newData);
     saveToStorage('social-data', newData);
+  };
+
+  return { data, saveData };
+};
+
+// Hook específico para dados ambientais
+export const useEnvironmentalData = () => {
+  const { saveToStorage, loadFromStorage } = useFormStorage();
+  
+  const defaultData: EnvironmentalFormData = {
+    organicMatterPercentage: "",
+    calciumQuantity: "",
+    cultures: [],
+    pastures: [],
+    monthlyFuelConsumption: "",
+    monthlyElectricityExpense: "",
+  };
+
+  const [data, setData] = useState<EnvironmentalFormData>(() => 
+    loadFromStorage('environmental-data', defaultData)
+  );
+
+  const saveData = (newData: EnvironmentalFormData) => {
+    setData(newData);
+    saveToStorage('environmental-data', newData);
   };
 
   return { data, saveData };

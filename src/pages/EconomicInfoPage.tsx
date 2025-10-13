@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useEconomicData } from "@/hooks/useFormStorage";
 import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import EconomicInfoForm from "@/components/EconomicInfoForm";
@@ -28,17 +29,11 @@ const EconomicInfoPage = () => {
   const [currentStep] = useState(3);
   const navigate = useNavigate();
   const [isFormValid, setIsFormValid] = useState(false);
-  const [formData, setFormData] = useState<EconomicInfoFormData>({
-    grossIncome: "",
-    financingPercentage: "",
-    productionCost: "",
-    propertyValue: "",
-    managementSystem: "",
-  });
   const { toast } = useToast();
+  const { data: economicData, saveData: saveEconomicData } = useEconomicData();
 
   const handleFormSubmit = (data: EconomicInfoFormData) => {
-    setFormData(data);
+    saveEconomicData(data);
     toast({
       title: "Dados salvos com sucesso!",
       description: "Prosseguindo para a próxima etapa...",
@@ -97,7 +92,7 @@ const EconomicInfoPage = () => {
           >
             <EconomicInfoForm
               onSubmit={handleFormSubmit}
-              initialData={formData}
+              initialData={economicData}
               onValidationChange={setIsFormValid}
             />
           </FormStep>

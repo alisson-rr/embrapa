@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useSocialData } from "@/hooks/useFormStorage";
 import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import SocialInfoForm from "@/components/SocialInfoForm";
@@ -31,28 +32,18 @@ const SocialInfoPage = () => {
   const [currentStep] = useState(4);
   const navigate = useNavigate();
   const [isFormValid, setIsFormValid] = useState(false);
-  const [formData, setFormData] = useState<SocialInfoFormData>({
-    permanentEmployees: "",
-    highestEducationEmployee: "",
-    highestSalary: "",
-    lowestEducationEmployee: "",
-    lowestSalary: "",
-    familyMembers: "",
-    familyMembersLevel: "",
-    technicalAssistance: "",
-  });
   const { toast } = useToast();
+  const { data: socialData, saveData: saveSocialData } = useSocialData();
 
   const handleFormSubmit = (data: SocialInfoFormData) => {
-    setFormData(data);
+    saveSocialData(data);
     toast({
       title: "Dados salvos com sucesso!",
       description: "Prosseguindo para a próxima etapa...",
     });
-    // Navigate to next step (when created)
+    // Navigate to next step
     setTimeout(() => {
-      console.log("Navigate to step 5");
-      // navigate('/environmental-info');
+      navigate('/environmental-info');
     }, 1000);
   };
 
@@ -104,7 +95,7 @@ const SocialInfoPage = () => {
         >
           <SocialInfoForm
             onSubmit={handleFormSubmit}
-            initialData={formData}
+            initialData={socialData}
             onValidationChange={setIsFormValid}
           />
         </FormStep>

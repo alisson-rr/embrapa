@@ -8,6 +8,7 @@ import PersonalDataPage from "./pages/PersonalDataPage";
 import PropertyInfoPage from "./pages/PropertyInfoPage";
 import EconomicInfoPage from "./pages/EconomicInfoPage";
 import SocialInfoPage from "./pages/SocialInfoPage";
+import EnvironmentalInfoPage from "./pages/EnvironmentalInfoPage";
 import NotFound from "./pages/NotFound";
 import FormDebugPanel from "./components/FormDebugPanel";
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/property-info" element={<PropertyInfoPage />} />
             <Route path="/economic-info" element={<EconomicInfoPage />} />
             <Route path="/social-info" element={<SocialInfoPage />} />
+            <Route path="/environmental-info" element={<EnvironmentalInfoPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
