@@ -67,12 +67,11 @@ const EnvironmentalInfoPage = () => {
     saveEnvironmentalData(data);
     toast({
       title: "Dados salvos com sucesso!",
-      description: "Prosseguindo para a próxima etapa...",
+      description: "Processando seus dados de sustentabilidade...",
     });
-    // Navigate to next step (resultado)
+    // Navigate to results page
     setTimeout(() => {
-      console.log("Navigate to step 6 - Resultado");
-      // navigate('/resultado');
+      navigate('/results');
     }, 1000);
   };
 
@@ -121,6 +120,7 @@ const EnvironmentalInfoPage = () => {
             canGoBack={currentStep > 1}
             canGoNext={true}
             isNextDisabled={!isFormValid}
+            isLastStep={true}
           >
             <EnvironmentalInfoForm
               onSubmit={handleFormSubmit}

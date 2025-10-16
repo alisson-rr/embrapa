@@ -11,6 +11,7 @@ interface FormStepProps {
   canGoBack?: boolean;
   canGoNext?: boolean;
   isNextDisabled?: boolean;
+  isLastStep?: boolean;
 }
 
 const FormStep = ({ 
@@ -21,7 +22,8 @@ const FormStep = ({
   onNext,
   canGoBack = true,
   canGoNext = true,
-  isNextDisabled = false
+  isNextDisabled = false,
+  isLastStep = false
 }: FormStepProps) => {
   return (
     <main className="flex-1 min-h-screen p-6 lg:p-12">
@@ -62,7 +64,7 @@ const FormStep = ({
               disabled={isNextDisabled}
               className="flex items-center gap-2 bg-primary hover:bg-primary/90 rounded-xl px-6 py-2.5"
             >
-              Prosseguir
+              {isLastStep ? 'Concluir' : 'Prosseguir'}
               <ChevronRight className="w-4 h-4" />
             </Button>
           )}
