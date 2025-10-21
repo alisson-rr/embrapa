@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PersonalDataPage from "./pages/PersonalDataPage";
 import PropertyInfoPage from "./pages/PropertyInfoPage";
 import EconomicInfoPage from "./pages/EconomicInfoPage";
@@ -16,6 +17,8 @@ import EnvironmentalInfoPage from "./pages/EnvironmentalInfoPage";
 import NotFound from "./pages/NotFound";
 import ResultsPage from "./pages/ResultsPage";
 import FormDebugPanel from "./components/FormDebugPanel";
+import Dashboard from "./pages/Dashboard";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +33,17 @@ const App = () => (
             <Routes>
               <Route path="/" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              } />
               <Route path="/form" element={<PersonalDataPage />} />
               <Route path="/property-info" element={<PropertyInfoPage />} />
               <Route path="/economic-info" element={<EconomicInfoPage />} />

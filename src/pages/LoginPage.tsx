@@ -19,7 +19,7 @@ const LoginPage = () => {
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (user) {
-      navigate("/form");
+      navigate("/dashboard");
     }
   }, [user, navigate]);
 
@@ -41,9 +41,9 @@ const LoginPage = () => {
     } else {
       toast({
         title: "Login realizado com sucesso!",
-        description: "Redirecionando para o formulário...",
+        description: "Redirecionando para o dashboard...",
       });
-      navigate("/form");
+      navigate("/dashboard");
     }
   };
 

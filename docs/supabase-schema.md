@@ -6,7 +6,42 @@ Este documento descreve a estrutura de tabelas necessária no Supabase para arma
 
 ## Tabelas Principais
 
-### 1. `forms` - Formulários Principais
+### 1. `profiles` - Perfis de Usuários
+Armazena informações de perfil dos usuários autenticados.
+
+```sql
+CREATE TABLE public.profiles (
+  user_id    UUID PRIMARY KEY
+             REFERENCES auth.users(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  email      TEXT,
+  phone      TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT profiles_email_unique UNIQUE (email)
+);
+
+-- Habilitar RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Política para usuários verem apenas seu próprio perfil
+CREATE POLICY "Users can view own profile" ON public.profiles
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own profile" ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own profile" ON public.profiles
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Trigger para atualizar updated_at automaticamente
+CREATE TRIGGER update_profiles_updated_at 
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW 
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+### 2. `forms` - Formulários Principais
 Armazena a submissão completa de cada formulário.
 
 ```sql
