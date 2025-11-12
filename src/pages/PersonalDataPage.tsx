@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { usePersonalData } from "@/hooks/useFormStorage";
+import { savePersonalData as saveToDatabase } from "@/lib/formStepSave";
+import { useAuth } from "@/contexts/AuthContext";
 import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import PersonalDataForm from "@/components/PersonalDataForm";
@@ -30,18 +32,38 @@ const PersonalDataPage = () => {
   const navigate = useNavigate();
   const [isFormValid, setIsFormValid] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
   const { data: personalData, saveData: savePersonalData } = usePersonalData();
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleFormSubmit = (data: PersonalDataFormData) => {
+  const handleFormSubmit = async (data: PersonalDataFormData) => {
+    setIsSaving(true);
+    
+    // Salvar no localStorage primeiro
     savePersonalData(data);
-    toast({
-      title: "Dados salvos com sucesso!",
-      description: "Prosseguindo para a próxima etapa...",
-    });
-    // Navigate to next step
-    setTimeout(() => {
-      navigate('/property-info');
-    }, 1000);
+    
+    // Salvar no banco de dados
+    const result = await saveToDatabase(data, user?.id);
+    
+    if (result.success) {
+      toast({
+        title: "Dados salvos com sucesso!",
+        description: "Dados pessoais salvos no banco de dados.",
+      });
+      
+      // Navegar para próxima etapa
+      setTimeout(() => {
+        navigate('/property-info');
+      }, 500);
+    } else {
+      toast({
+        title: "Erro ao salvar",
+        description: result.error || "Não foi possível salvar os dados no banco.",
+        variant: "destructive",
+      });
+    }
+    
+    setIsSaving(false);
   };
 
   const handleNext = () => {

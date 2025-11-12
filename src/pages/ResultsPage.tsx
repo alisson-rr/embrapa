@@ -1,23 +1,51 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import LoadingCalculation from "@/components/LoadingCalculation";
 import { getFormResults } from "@/lib/submitForm";
+import { supabase } from "@/lib/supabase";
 import { ArrowRight, DollarSign, ThumbsUp, Cloud, BarChart3, Users, Leaf, TrendingUp, CheckCircle } from "lucide-react";
 
 const ResultsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState<any>(null);
   const navigate = useNavigate();
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    // Simular tempo de processamento
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
+    const loadFormData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Se há um ID na URL, buscar dados do formulário específico
+        if (id) {
+          const { data: formData, error: formError } = await supabase
+            .from('forms')
+            .select('*, personal_data(*), property_data(*), economic_data(*), social_data(*), environmental_data(*)')
+            .eq('id', id)
+            .single();
 
-    return () => clearTimeout(timer);
-  }, []);
+          if (formError) {
+            console.error('Erro ao buscar dados do formulário:', formError);
+          } else {
+            setFormData(formData);
+          }
+        }
+        
+        // Simular tempo de processamento para mostrar a animação
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 2000);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        setIsLoading(false);
+      }
+    };
+
+    loadFormData();
+  }, [id]);
 
   if (isLoading) {
     return <LoadingCalculation />;

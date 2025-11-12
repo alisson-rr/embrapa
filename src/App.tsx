@@ -19,6 +19,8 @@ import ResultsPage from "./pages/ResultsPage";
 import FormDebugPanel from "./components/FormDebugPanel";
 import Dashboard from "./pages/Dashboard";
 import SettingsPage from "./pages/SettingsPage";
+import PermissionsPage from "./pages/PermissionsPage";
+import { FormResponsesPage } from "./pages/FormResponsesPage";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,17 @@ const App = () => (
                   <SettingsPage />
                 </ProtectedRoute>
               } />
+              <Route path="/permissions" element={
+                <ProtectedRoute>
+                  <PermissionsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/form-responses" element={
+                <ProtectedRoute>
+                  <FormResponsesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/result/:id" element={<ResultsPage />} />
               <Route path="/form" element={<PersonalDataPage />} />
               <Route path="/property-info" element={<PropertyInfoPage />} />
               <Route path="/economic-info" element={<EconomicInfoPage />} />

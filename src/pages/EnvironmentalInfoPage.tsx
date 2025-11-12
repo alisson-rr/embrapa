@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useEnvironmentalData, usePropertyData } from "@/hooks/useFormStorage";
+import { saveEnvironmentalData as saveToDatabase, clearCurrentForm } from "@/lib/formStepSave";
 import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import EnvironmentalInfoForm from "@/components/EnvironmentalInfoForm";
@@ -30,6 +31,7 @@ const EnvironmentalInfoPage = () => {
   const [currentStep] = useState(5);
   const navigate = useNavigate();
   const [isFormValid, setIsFormValid] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { data: environmentalData, saveData: saveEnvironmentalData } = useEnvironmentalData();
   const { data: propertyData } = usePropertyData();
@@ -63,16 +65,37 @@ const EnvironmentalInfoPage = () => {
     return false;
   }, [propertyData.pastureTypes, propertyData.activityTypes]);
 
-  const handleFormSubmit = (data: EnvironmentalInfoFormData) => {
+  const handleFormSubmit = async (data: EnvironmentalInfoFormData) => {
+    setIsSaving(true);
+    
+    // Salvar no localStorage primeiro
     saveEnvironmentalData(data);
-    toast({
-      title: "Dados salvos com sucesso!",
-      description: "Processando seus dados de sustentabilidade...",
-    });
-    // Navigate to results page
-    setTimeout(() => {
-      navigate('/results');
-    }, 1000);
+    
+    // Salvar no banco de dados (última etapa - marca como completo)
+    const result = await saveToDatabase(data);
+    
+    if (result.success) {
+      toast({
+        title: "Formulário enviado com sucesso!",
+        description: "Todos os dados foram salvos no banco de dados.",
+      });
+      
+      // Limpar dados do localStorage e navegar para resultados
+      clearCurrentForm();
+      
+      // Navegar para página de resultados com o formId
+      setTimeout(() => {
+        navigate(`/result/${result.formId}`);
+      }, 500);
+    } else {
+      toast({
+        title: "Erro ao salvar",
+        description: result.error || "Não foi possível salvar os dados no banco.",
+        variant: "destructive",
+      });
+    }
+    
+    setIsSaving(false);
   };
 
   const handleNext = () => {

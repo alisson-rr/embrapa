@@ -2,20 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import {
-  LayoutDashboard,
-  Users,
-  Shield,
-  Settings,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Menu,
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Shield, 
+  Settings, 
+  LogOut, 
+  Menu, 
   X,
   Eye,
   EyeOff,
   Check,
-  CircleAlert,
+  Circle,
+  UserCircle,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,27 +61,32 @@ const SettingsPage = () => {
     minLength: false,
     hasNumber: false,
     hasUpperCase: false,
-    noSpecialChars: true,
   });
 
   // Menu items da sidebar
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', active: false },
-    { icon: Users, label: 'Usuários', path: '/users', active: false },
+    { icon: FileText, label: 'Respostas', path: '/form-responses', active: false },
     { icon: Shield, label: 'Permissionamento', path: '/permissions', active: false },
     { icon: Settings, label: 'Configurações', path: '/settings', active: true },
   ];
 
   // Carregar perfil do cache quando o componente monta
   useEffect(() => {
-    if (profile) {
-      setProfileData({
+    if (profile && profile.name) {
+      // Só atualizar se realmente há dados diferentes
+      const newData = {
         name: profile.name || '',
         email: profile.email || '',
         phone: profile.phone || '',
-      });
+      };
+      
+      // Verificar se os dados realmente mudaram
+      if (JSON.stringify(profileData) !== JSON.stringify(newData)) {
+        setProfileData(newData);
+      }
     }
-  }, [profile]);
+  }, [profile?.name, profile?.email, profile?.phone]); // Dependências específicas
 
   // Validar senha em tempo real
   useEffect(() => {
@@ -90,7 +97,6 @@ const SettingsPage = () => {
       minLength: newPassword.length >= 6,
       hasNumber: /\d/.test(newPassword),
       hasUpperCase: /[A-Z]/.test(newPassword),
-      noSpecialChars: /^[a-zA-Z0-9]*$/.test(newPassword),
     });
   }, [passwordData]);
 
@@ -441,10 +447,7 @@ const SettingsPage = () => {
                       {validations.hasUpperCase ? <Check size={16} /> : <CircleAlert size={16} />}
                       <span>Contém pelo menos uma letra maiúscula</span>
                     </div>
-                    <div className={`flex items-center gap-2 ${validations.noSpecialChars ? 'text-green-600' : 'text-gray-500'}`}>
-                      {validations.noSpecialChars ? <Check size={16} /> : <CircleAlert size={16} />}
-                      <span>Não contém caracteres especiais (#,%,;,@...)</span>
-                    </div>
+                    {/* Removido: validação de caracteres especiais */}
                   </div>
 
                   <div className="flex justify-end">

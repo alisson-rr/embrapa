@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { usePropertyData } from "@/hooks/useFormStorage";
+import { savePropertyData as saveToDatabase } from "@/lib/formStepSave";
 import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import PropertyInfoForm from "@/components/PropertyInfoForm";
@@ -75,17 +76,36 @@ const PropertyInfoPage = () => {
   const [isFormValid, setIsFormValid] = useState(false);
   const { toast } = useToast();
   const { data: propertyData, saveData: savePropertyData } = usePropertyData();
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleFormSubmit = (data: PropertyInfoFormData) => {
+  const handleFormSubmit = async (data: PropertyInfoFormData) => {
+    setIsSaving(true);
+    
+    // Salvar no localStorage primeiro
     savePropertyData(data);
-    toast({
-      title: "Dados salvos com sucesso!",
-      description: "Prosseguindo para a próxima etapa...",
-    });
-    // Navigate to next step
-    setTimeout(() => {
-      navigate('/economic-info');
-    }, 1000);
+    
+    // Salvar no banco de dados
+    const result = await saveToDatabase(data);
+    
+    if (result.success) {
+      toast({
+        title: "Dados salvos com sucesso!",
+        description: "Dados da propriedade salvos no banco de dados.",
+      });
+      
+      // Navegar para próxima etapa
+      setTimeout(() => {
+        navigate('/economic-info');
+      }, 500);
+    } else {
+      toast({
+        title: "Erro ao salvar",
+        description: result.error || "Não foi possível salvar os dados no banco.",
+        variant: "destructive",
+      });
+    }
+    
+    setIsSaving(false);
   };
 
   const handleNext = () => {

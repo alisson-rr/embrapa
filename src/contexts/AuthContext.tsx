@@ -27,14 +27,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // Função para buscar perfil do usuário
   const loadProfile = async (userId: string) => {
+    // Evitar múltiplas execuções simultâneas
+    if (isLoadingProfile) {
+      console.log('⏳ Já está carregando perfil, pulando...');
+      return;
+    }
+    
     try {
+      setIsLoadingProfile(true);
+      console.log('📋 Carregando perfil para usuário:', userId);
+      
       // Tentar carregar do cache primeiro
       const cached = localStorage.getItem('embrapa-user-profile');
       if (cached) {
-        setProfile(JSON.parse(cached));
+        const cachedProfile = JSON.parse(cached);
+        setProfile(cachedProfile);
+        console.log('📋 Perfil carregado do cache:', cachedProfile);
       }
 
       // Buscar do Supabase
@@ -72,54 +84,56 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           email: data.email || '',
           phone: data.phone || '',
         };
-        setProfile(profileData);
-        localStorage.setItem('embrapa-user-profile', JSON.stringify(profileData));
+        
+        // Só atualizar se os dados realmente mudaram
+        const currentProfile = JSON.stringify(profile);
+        const newProfile = JSON.stringify(profileData);
+        
+        if (currentProfile !== newProfile) {
+          console.log('📋 Perfil atualizado:', profileData);
+          setProfile(profileData);
+          localStorage.setItem('embrapa-user-profile', JSON.stringify(profileData));
+        } else {
+          console.log('📋 Perfil já está atualizado, pulando setProfile');
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
   useEffect(() => {
-    // Verificar sessão atual
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Carregar perfil se houver usuário
-        if (session?.user) {
-          await loadProfile(session.user.id);
-        }
-      } catch (error) {
-        console.error('Erro ao verificar sessão:', error);
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getSession();
-
     // Escutar mudanças de autenticação
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔐 Auth state change:', event, session?.user?.id);
+      
       setSession(session);
       setUser(session?.user ?? null);
       
-      // Carregar perfil ao fazer login
+      // Carregar perfil apenas quando necessário
       if (session?.user) {
-        await loadProfile(session.user.id);
+        // Evitar dupla execução no carregamento inicial
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          // NÃO usar await aqui - deixar loadProfile executar em paralelo
+          loadProfile(session.user.id).catch(err => {
+            console.error('Erro ao carregar perfil:', err);
+          });
+        }
       } else {
         setProfile(null);
         localStorage.removeItem('embrapa-user-profile');
       }
       
-      setLoading(false);
+      // SEMPRE desabilitar loading após processar o evento
+      // (exceto para TOKEN_REFRESHED que é silencioso)
+      if (event !== 'TOKEN_REFRESHED') {
+        setLoading(false);
+        console.log('✅ Loading desabilitado após evento:', event);
+      }
     });
 
     return () => subscription.unsubscribe();

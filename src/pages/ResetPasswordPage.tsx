@@ -12,7 +12,6 @@ interface PasswordValidation {
   minLength: boolean;
   hasNumber: boolean;
   hasUpperCase: boolean;
-  hasNoSpecialChars: boolean;
 }
 
 const ResetPasswordPage = () => {
@@ -30,7 +29,6 @@ const ResetPasswordPage = () => {
     minLength: false,
     hasNumber: false,
     hasUpperCase: false,
-    hasNoSpecialChars: true,
   });
 
   // Validar senha em tempo real
@@ -38,7 +36,6 @@ const ResetPasswordPage = () => {
     const minLength = password.length >= 6;
     const hasNumber = /\d/.test(password);
     const hasUpperCase = /[A-Z]/.test(password);
-    const hasNoSpecialChars = /^[a-zA-Z0-9]*$/.test(password);
     const match = password !== "" && password === confirmPassword;
 
     setValidation({
@@ -46,7 +43,6 @@ const ResetPasswordPage = () => {
       minLength,
       hasNumber,
       hasUpperCase,
-      hasNoSpecialChars,
     });
   }, [password, confirmPassword]);
 
@@ -54,8 +50,7 @@ const ResetPasswordPage = () => {
     validation.match &&
     validation.minLength &&
     validation.hasNumber &&
-    validation.hasUpperCase &&
-    validation.hasNoSpecialChars;
+    validation.hasUpperCase;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,10 +213,7 @@ const ResetPasswordPage = () => {
                 isValid={validation.hasUpperCase} 
                 text="Contém pelo menos uma letra maiúscula" 
               />
-              <ValidationItem 
-                isValid={validation.hasNoSpecialChars} 
-                text="Não contém caracteres especiais (#,%,;,@...)" 
-              />
+              {/* Removido: validação de caracteres especiais */}
             </div>
 
             {/* Botão Entrar */}

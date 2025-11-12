@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useSocialData } from "@/hooks/useFormStorage";
+import { saveSocialData as saveToDatabase } from "@/lib/formStepSave";
 import FormSidebar from "@/components/FormSidebar";
 import FormStep from "@/components/FormStep";
 import SocialInfoForm from "@/components/SocialInfoForm";
@@ -34,17 +35,36 @@ const SocialInfoPage = () => {
   const [isFormValid, setIsFormValid] = useState(false);
   const { toast } = useToast();
   const { data: socialData, saveData: saveSocialData } = useSocialData();
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleFormSubmit = (data: SocialInfoFormData) => {
+  const handleFormSubmit = async (data: SocialInfoFormData) => {
+    setIsSaving(true);
+    
+    // Salvar no localStorage primeiro
     saveSocialData(data);
-    toast({
-      title: "Dados salvos com sucesso!",
-      description: "Prosseguindo para a próxima etapa...",
-    });
-    // Navigate to next step
-    setTimeout(() => {
-      navigate('/environmental-info');
-    }, 1000);
+    
+    // Salvar no banco de dados
+    const result = await saveToDatabase(data);
+    
+    if (result.success) {
+      toast({
+        title: "Dados salvos com sucesso!",
+        description: "Dados sociais salvos no banco de dados.",
+      });
+      
+      // Navegar para próxima etapa
+      setTimeout(() => {
+        navigate('/environmental-info');
+      }, 500);
+    } else {
+      toast({
+        title: "Erro ao salvar",
+        description: result.error || "Não foi possível salvar os dados no banco.",
+        variant: "destructive",
+      });
+    }
+    
+    setIsSaving(false);
   };
 
   const handleNext = () => {

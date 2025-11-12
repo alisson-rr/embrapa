@@ -2,7 +2,27 @@
 
 ## Visão Geral
 
-Este documento descreve a estrutura de tabelas necessária no Supabase para armazenar os dados do formulário de sustentabilidade da Embrapa.
+Este documento descreve a estrutura completa de tabelas do Supabase para o sistema de formulários de sustentabilidade da Embrapa.
+
+**Última atualização:** 11 de Novembro de 2024
+
+## Diagrama de Relacionamentos
+
+```
+forms (tabela principal)
+├── personal_data (1:1)
+├── property_data (1:1)
+│   └── livestock_data (1:1) 
+├── economic_data (1:1)
+├── social_data (1:1)
+└── environmental_data (1:1)
+    ├── cultures_data (1:N)
+    └── pastures_data (1:N)
+
+auth.users
+└── profiles (1:1)
+└── forms (1:N)
+```
 
 ## Tabelas Principais
 
@@ -11,13 +31,13 @@ Armazena informações de perfil dos usuários autenticados.
 
 ```sql
 CREATE TABLE public.profiles (
-  user_id    UUID PRIMARY KEY
-             REFERENCES auth.users(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
-  email      TEXT,
-  phone      TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  user_id        UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name           TEXT,
+  email          TEXT,
+  phone          TEXT,
+  is_manager     BOOLEAN DEFAULT false,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT profiles_email_unique UNIQUE (email)
 );
 
@@ -45,17 +65,17 @@ CREATE TRIGGER update_profiles_updated_at
 Armazena a submissão completa de cada formulário.
 
 ```sql
-CREATE TABLE forms (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id), -- Opcional, se usuário estiver logado
-  status VARCHAR(20) DEFAULT 'draft', -- draft, completed, processed
-  sustainability_index INTEGER, -- Índice geral calculado (0-100)
-  economic_index INTEGER, -- Índice econômico calculado (0-100)
-  social_index INTEGER, -- Índice social calculado (0-100)
-  environmental_index INTEGER, -- Índice ambiental calculado (0-100)
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  submitted_at TIMESTAMP WITH TIME ZONE
+CREATE TABLE public.forms (
+  id                    UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id              UUID REFERENCES auth.users(id),
+  status               VARCHAR(20) DEFAULT 'draft', -- draft, completed, processed
+  sustainability_index INTEGER,
+  economic_index       INTEGER,
+  social_index         INTEGER,
+  environmental_index  INTEGER,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW(),
+  submitted_at         TIMESTAMPTZ
 );
 ```
 
@@ -425,3 +445,85 @@ Monitore o desempenho das queries usando:
 - Supabase Dashboard
 - pg_stat_statements
 - Logs de slow queries
+
+## VIEW para Respostas dos Formulários
+
+Esta VIEW une os dados das tabelas principais para facilitar a listagem e busca de respostas:
+
+```sql
+-- Deletar a view se já existir
+DROP VIEW IF EXISTS public.form_responses_view;
+
+-- Criar a VIEW
+CREATE VIEW public.form_responses_view AS
+SELECT 
+    -- Dados do formulário
+    f.id AS form_id,
+    f.user_id,
+    f.status,
+    f.sustainability_index,
+    f.economic_index,
+    f.social_index,
+    f.environmental_index,
+    f.created_at AS data_resposta,
+    f.updated_at AS data_atualizacao,
+    f.submitted_at AS data_submissao,
+    
+    -- Dados pessoais do usuário
+    pd.name AS nome_usuario,
+    pd.age AS idade_usuario,
+    pd.occupation AS ocupacao,
+    pd.education AS escolaridade,
+    pd.years_in_agriculture AS anos_agricultura,
+    
+    -- Dados da propriedade
+    prop.property_name AS nome_fazenda,
+    prop.municipality AS municipio,
+    prop.state AS estado,
+    prop.total_area AS area_total,
+    prop.production_area AS area_producao,
+    prop.activity_types AS tipos_atividade,
+    prop.livestock_type AS tipo_pecuaria,
+    prop.production_system AS sistema_producao,
+    
+    -- Localização formatada
+    CONCAT(
+        COALESCE(prop.municipality, ''),
+        CASE 
+            WHEN prop.municipality IS NOT NULL AND prop.state IS NOT NULL THEN ', ' 
+            ELSE ''
+        END,
+        COALESCE(prop.state, '')
+    ) AS localizacao,
+    
+    -- Data formatada
+    TO_CHAR(f.created_at, 'DD/MM/YYYY') AS data_formatada,
+    TO_CHAR(f.created_at, 'DD/MM/YYYY HH24:MI') AS data_hora_formatada
+    
+FROM 
+    public.forms f
+    LEFT JOIN public.personal_data pd ON pd.form_id = f.id
+    LEFT JOIN public.property_data prop ON prop.form_id = f.id
+ORDER BY 
+    f.created_at DESC;
+
+-- Permissões
+GRANT SELECT ON public.form_responses_view TO authenticated;
+GRANT SELECT ON public.form_responses_view TO service_role;
+```
+
+### Uso da VIEW na aplicação:
+
+```typescript
+// Buscar todas as respostas
+const { data, error } = await supabase
+  .from('form_responses_view')
+  .select('*')
+  .order('data_resposta', { ascending: false });
+
+// Buscar com filtro
+const { data, error } = await supabase
+  .from('form_responses_view')
+  .select('*')
+  .or(`nome_usuario.ilike.%${searchTerm}%,nome_fazenda.ilike.%${searchTerm}%`);
+```

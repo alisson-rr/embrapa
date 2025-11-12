@@ -1,19 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDashboardData } from '@/hooks/useDashboardData';
 import { supabase } from '@/lib/supabase';
-import {
-  LayoutDashboard,
-  Users,
-  Shield,
-  Settings,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Shield, 
+  Settings, 
+  LogOut, 
+  Menu, 
+  X, 
   TrendingUp,
   TrendingDown,
-  Menu,
-  X,
+  Activity,
+  BarChart3,
+  ArrowUpRight,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +38,8 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  BarChart,
+  Bar,
 } from 'recharts';
 
 interface DashboardMetrics {
@@ -62,243 +71,84 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [selectedState, setSelectedState] = useState('');
   
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    totalResponses: 0,
-    abandonmentRate: 0,
-    averageTime: 0,
-    sustainabilityIndex: 0,
-    environmentalIndex: 0,
-    socialIndex: 0,
-    economicIndex: 0,
-    categoriesData: [],
-    latestResponses: [],
-    trendsData: [],
-  });
+  // Usar o hook customizado para dados do dashboard
+  const { data: dashboardData, loading, error, refresh } = useDashboardData();
 
   // Menu items da sidebar
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', active: true },
-    { icon: Users, label: 'Usuários', path: '/users', active: false },
+    { icon: FileText, label: 'Respostas', path: '/form-responses', active: false },
     { icon: Shield, label: 'Permissionamento', path: '/permissions', active: false },
     { icon: Settings, label: 'Configurações', path: '/settings', active: false },
   ];
 
-  // Cores para o gráfico de pizza
-  const COLORS = {
-    Agro: '#f59e0b',
-    Lavoura: '#10b981',
-    Pecuária: '#ef4444',
+  // Cores dinâmicas para o gráfico de pizza baseadas no tipo de atividade
+  const getPieColor = (activityType: string) => {
+    const colorMap: { [key: string]: string } = {
+      'Agricultura': '#10b981',
+      'Pecuária': '#ef4444',
+      'Lavoura': '#f59e0b',
+      'Integração': '#8b5cf6',
+      'Mista': '#3b82f6',
+      'default': '#6b7280'
+    };
+    return colorMap[activityType] || colorMap['default'];
   };
 
-  // Buscar dados do Supabase
+  // Mostrar erro se houver
   useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-
-      // Buscar formulários
-      const { data: forms, error: formsError } = await supabase
-        .from('forms')
-        .select(`
-          *,
-          personal_data (name, created_at),
-          property_data (activity_types)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (formsError) throw formsError;
-
-      if (forms && forms.length > 0) {
-        // Calcular métricas
-        const totalResponses = forms.length;
-        const completedForms = forms.filter(f => f.status === 'completed').length;
-        const abandonmentRate = Math.round(((totalResponses - completedForms) / totalResponses) * 100);
-        
-        // Calcular tempo médio (simulado por enquanto)
-        const averageTime = 25;
-
-        // Calcular índices médios
-        const avgSustainability = Math.round(
-          forms.reduce((acc, f) => acc + (f.sustainability_index || 0), 0) / forms.length
-        );
-        const avgEnvironmental = Math.round(
-          forms.reduce((acc, f) => acc + (f.environmental_index || 0), 0) / forms.length
-        );
-        const avgSocial = Math.round(
-          forms.reduce((acc, f) => acc + (f.social_index || 0), 0) / forms.length
-        );
-        const avgEconomic = Math.round(
-          forms.reduce((acc, f) => acc + (f.economic_index || 0), 0) / forms.length
-        );
-
-        // Categorizar por tipo de atividade
-        const categoryCounts: { [key: string]: number } = { Agro: 0, Lavoura: 0, Pecuária: 0 };
-        forms.forEach((form) => {
-          if (form.property_data?.activity_types) {
-            form.property_data.activity_types.forEach((type: string) => {
-              if (type.includes('agricultura') || type.includes('cultivo')) categoryCounts.Agro++;
-              else if (type.includes('lavoura')) categoryCounts.Lavoura++;
-              else if (type.includes('pecuária') || type.includes('gado')) categoryCounts.Pecuária++;
-            });
-          }
-        });
-
-        const categoriesData = Object.entries(categoryCounts).map(([name, value]) => ({
-          name,
-          value,
-        }));
-
-        // Últimas respostas
-        const latestResponses = forms.slice(0, 4).map((form) => ({
-          id: form.id,
-          name: form.personal_data?.name || 'Anônimo',
-          date: form.personal_data?.created_at
-            ? new Date(form.personal_data.created_at).toLocaleDateString('pt-BR')
-            : 'Data não disponível',
-        }));
-
-        // Dados de tendência (últimos 30 dias - simulado)
-        const trendsData = Array.from({ length: 30 }, (_, i) => {
-          const date = new Date();
-          date.setDate(date.getDate() - (29 - i));
-          return {
-            date: date.toISOString().split('T')[0],
-            sustainability: Math.floor(Math.random() * 20) + 55,
-            environmental: Math.floor(Math.random() * 20) + 15,
-            social: Math.floor(Math.random() * 20) + 45,
-            economic: Math.floor(Math.random() * 20) + 35,
-          };
-        });
-
-        setMetrics({
-          totalResponses,
-          abandonmentRate,
-          averageTime,
-          sustainabilityIndex: avgSustainability || 65,
-          environmentalIndex: avgEnvironmental || 21,
-          socialIndex: avgSocial || 55,
-          economicIndex: avgEconomic || 47,
-          categoriesData: categoriesData.length > 0 ? categoriesData : [
-            { name: 'Agro', value: 19 },
-            { name: 'Lavoura', value: 26 },
-            { name: 'Pecuária', value: 7 },
-          ],
-          latestResponses,
-          trendsData,
-        });
-      } else {
-        // Dados simulados se não houver registros
-        setMetrics({
-          totalResponses: 200,
-          abandonmentRate: 13,
-          averageTime: 25,
-          sustainabilityIndex: 65,
-          environmentalIndex: 21,
-          socialIndex: 55,
-          economicIndex: 47,
-          categoriesData: [
-            { name: 'Agro', value: 19 },
-            { name: 'Lavoura', value: 26 },
-            { name: 'Pecuária', value: 7 },
-          ],
-          latestResponses: [
-            { id: '1', name: 'Marcos Carvalho', date: '23/12/2024' },
-            { id: '2', name: 'Jon Carter', date: '23/12/2024' },
-            { id: '3', name: 'Reinaldo Campos E...', date: '21/12/2024' },
-            { id: '4', name: 'João Silva Oliveira...', date: '20/12/2024' },
-          ],
-          trendsData: Array.from({ length: 30 }, (_, i) => {
-            const date = new Date();
-            date.setDate(date.getDate() - (29 - i));
-            return {
-              date: date.toISOString().split('T')[0],
-              sustainability: Math.floor(Math.random() * 20) + 55,
-              environmental: Math.floor(Math.random() * 20) + 15,
-              social: Math.floor(Math.random() * 20) + 45,
-              economic: Math.floor(Math.random() * 20) + 35,
-            };
-          }),
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+    if (error) {
       toast({
         title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar os dados do dashboard',
+        description: error,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
+  }, [error, toast]);
+
+  // Preparar dados para exibição
+  const metrics = dashboardData.generalMetrics || {
+    total_formularios: 0,
+    formularios_completos: 0,
+    taxa_abandono: 0,
+    tempo_medio_minutos: 0,
+    indice_sustentabilidade_medio: 0,
+    indice_economico_medio: 0,
+    indice_social_medio: 0,
+    indice_ambiental_medio: 0
   };
+
+  // Formatar dados para gráficos
+  const categoriesData = dashboardData.activityDistribution.map(item => ({
+    name: item.activity_type,
+    value: item.total,
+    percentage: item.percentage
+  }));
+
+  // Formatar dados de tendência
+  const trendsData = dashboardData.monthlyTrends.map(item => ({
+    date: new Date(item.mes).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+    sustainability: item.indice_sustentabilidade,
+    environmental: item.indice_ambiental,
+    social: item.indice_social,
+    economic: item.indice_economico
+  })).reverse();
+
+  // Formatar últimas respostas
+  const latestResponses = dashboardData.recentResponses.map(item => ({
+    id: item.id,
+    name: item.usuario_nome || 'Anônimo',
+    property: item.propriedade_nome || 'Não informado',
+    location: `${item.municipio || ''}, ${item.estado || ''}`.trim().replace(/^,\s*|,\s*$/g, ''),
+    date: new Date(item.created_at).toLocaleDateString('pt-BR'),
+    index: item.sustainability_index
+  }));
 
   const handleLogout = async () => {
     await signOut();
     navigate('/');
   };
-
-  // Mapa do Brasil SVG simplificado
-  const BrazilMap = () => (
-    <svg viewBox="0 0 500 500" className="w-full h-full">
-      <g>
-        {/* Norte - Amarelo */}
-        <path
-          d="M 150,50 L 350,50 L 350,150 L 150,150 Z"
-          fill="#fbbf24"
-          stroke="#d97706"
-          strokeWidth="2"
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => setSelectedState('Norte')}
-        />
-        
-        {/* Nordeste - Laranja */}
-        <path
-          d="M 350,100 L 450,150 L 400,250 L 350,200 Z"
-          fill="#fb923c"
-          stroke="#ea580c"
-          strokeWidth="2"
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => setSelectedState('Nordeste')}
-        />
-        
-        {/* Centro-Oeste - Amarelo */}
-        <path
-          d="M 150,150 L 350,150 L 350,300 L 150,300 Z"
-          fill="#fbbf24"
-          stroke="#d97706"
-          strokeWidth="2"
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => setSelectedState('Centro-Oeste')}
-        />
-        
-        {/* Sudeste - Vermelho */}
-        <path
-          d="M 350,250 L 400,250 L 400,350 L 300,350 Z"
-          fill="#ef4444"
-          stroke="#dc2626"
-          strokeWidth="2"
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => setSelectedState('Sudeste')}
-        />
-        
-        {/* Sul - Amarelo */}
-        <path
-          d="M 200,350 L 350,350 L 300,450 L 250,450 Z"
-          fill="#fbbf24"
-          stroke="#d97706"
-          strokeWidth="2"
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => setSelectedState('Sul')}
-        />
-      </g>
-    </svg>
-  );
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -416,19 +266,22 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Respostas nos formulários</CardDescription>
-                <CardTitle className="text-3xl">{metrics.totalResponses}</CardTitle>
-                <p className="text-sm text-green-600">
-                  +0.1% Últimos 30 dias
-                </p>
+                <CardTitle className="text-3xl">{metrics.total_formularios || 0}</CardTitle>
+                {metrics.total_formularios_change && (
+                  <p className={`text-sm flex items-center gap-1 ${metrics.total_formularios_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {metrics.total_formularios_change > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {Math.abs(metrics.total_formularios_change)}% vs mês anterior
+                  </p>
+                )}
               </CardHeader>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Taxa de abandono</CardDescription>
-                <CardTitle className="text-3xl">{metrics.abandonmentRate}</CardTitle>
-                <p className="text-sm text-red-600">
-                  +0.1% Últimos 30 dias
+                <CardTitle className="text-3xl">{metrics.taxa_abandono || 0}%</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {metrics.formularios_completos || 0} de {metrics.total_formularios || 0} completos
                 </p>
               </CardHeader>
             </Card>
@@ -436,9 +289,9 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Tempo médio de preenchimento</CardDescription>
-                <CardTitle className="text-3xl">{metrics.averageTime} min</CardTitle>
-                <p className="text-sm text-green-600">
-                  +0.1% Últimos 30 dias
+                <CardTitle className="text-3xl">{metrics.tempo_medio_minutos || 0} min</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Tempo real calculado
                 </p>
               </CardHeader>
             </Card>
@@ -455,7 +308,7 @@ const Dashboard = () => {
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
-                      data={metrics.categoriesData}
+                      data={categoriesData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -463,22 +316,22 @@ const Dashboard = () => {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {metrics.categoriesData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS]} />
+                      {categoriesData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={getPieColor(entry.name)} />
                       ))}
                     </Pie>
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="flex justify-center gap-6 mt-4">
-                  {metrics.categoriesData.map((entry) => (
-                    <div key={entry.name} className="flex items-center gap-2">
+                <div className="flex flex-wrap justify-center gap-2 mt-4">
+                  {categoriesData.map((item) => (
+                    <div key={item.name} className="flex items-center gap-1">
                       <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: COLORS[entry.name as keyof typeof COLORS] }}
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: getPieColor(item.name) }}
                       />
-                      <span className="text-sm text-gray-600">
-                        {entry.name} {entry.value}
+                      <span className="text-xs text-gray-600">
+                        {item.name} ({item.percentage?.toFixed(1) || item.percentage}%)
                       </span>
                     </div>
                   ))}
@@ -486,18 +339,31 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Map */}
+            {/* Gráfico de Barras - Formulários por Estado */}
             <Card>
               <CardHeader>
-                <CardTitle>Mapa</CardTitle>
+                <CardTitle>Formulários por Estado</CardTitle>
               </CardHeader>
-              <CardContent className="h-[300px]">
-                <BrazilMap />
-                {selectedState && (
-                  <p className="text-center text-sm text-gray-600 mt-2">
-                    Região selecionada: {selectedState}
-                  </p>
-                )}
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={dashboardData.regionalData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="estado" />
+                    <YAxis />
+                    <Tooltip 
+                      formatter={(value, name) => [
+                        name === 'total_formularios' ? `${value} formulários` : `Índice: ${value}`,
+                        name === 'total_formularios' ? 'Total' : 'Índice Médio'
+                      ]}
+                    />
+                    <Bar 
+                      dataKey="total_formularios" 
+                      fill="#00703c" 
+                      name="Total de Formulários"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
@@ -510,11 +376,22 @@ const Dashboard = () => {
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {metrics.latestResponses.map((response) => (
-                    <div key={response.id} className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{response.name}</span>
-                      <span className="text-sm text-gray-500">{response.date}</span>
+                <div className="space-y-0">
+                  {latestResponses.map((response, index) => (
+                    <div key={response.id}>
+                      <div className="flex justify-between items-center py-3">
+                        <div>
+                          <p className="text-sm font-medium">{response.name}</p>
+                          <p className="text-xs text-gray-500">{response.property} - {response.location}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500">{response.date}</p>
+                          <p className="text-xs font-medium text-green-600">Índice: {response.index}</p>
+                        </div>
+                      </div>
+                      {index < latestResponses.length - 1 && (
+                        <div className="border-b border-green-200" />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -527,15 +404,17 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Índice de sustentabilidade</CardDescription>
-                <CardTitle className="text-3xl">{metrics.sustainabilityIndex}</CardTitle>
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <TrendingUp size={14} />
-                  +0.1% Últimos 30 dias
-                </p>
+                <CardTitle className="text-3xl">{metrics.indice_sustentabilidade_medio || 0}</CardTitle>
+                {metrics.indice_sustentabilidade_change && (
+                  <p className={`text-sm flex items-center gap-1 ${metrics.indice_sustentabilidade_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {metrics.indice_sustentabilidade_change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {Math.abs(metrics.indice_sustentabilidade_change)}% vs mês anterior
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={metrics.trendsData.slice(-7)}>
+                  <LineChart data={trendsData.slice(-7)}>
                     <Line
                       type="monotone"
                       dataKey="sustainability"
@@ -551,15 +430,17 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Índice ambiental</CardDescription>
-                <CardTitle className="text-3xl">{metrics.environmentalIndex}</CardTitle>
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <TrendingUp size={14} />
-                  +0.1% Últimos 30 dias
-                </p>
+                <CardTitle className="text-3xl">{metrics.indice_ambiental_medio || 0}</CardTitle>
+                {metrics.indice_ambiental_change && (
+                  <p className={`text-sm flex items-center gap-1 ${metrics.indice_ambiental_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {metrics.indice_ambiental_change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {Math.abs(metrics.indice_ambiental_change)}% vs mês anterior
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={metrics.trendsData.slice(-7)}>
+                  <LineChart data={trendsData.slice(-7)}>
                     <Line
                       type="monotone"
                       dataKey="environmental"
@@ -575,15 +456,17 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Índice social</CardDescription>
-                <CardTitle className="text-3xl">{metrics.socialIndex}</CardTitle>
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <TrendingUp size={14} />
-                  +0.1% Últimos 30 dias
-                </p>
+                <CardTitle className="text-3xl">{metrics.indice_social_medio || 0}</CardTitle>
+                {metrics.indice_social_change && (
+                  <p className={`text-sm flex items-center gap-1 ${metrics.indice_social_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {metrics.indice_social_change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {Math.abs(metrics.indice_social_change)}% vs mês anterior
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={metrics.trendsData.slice(-7)}>
+                  <LineChart data={trendsData.slice(-7)}>
                     <Line
                       type="monotone"
                       dataKey="social"
@@ -599,15 +482,17 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Índice econômico</CardDescription>
-                <CardTitle className="text-3xl">{metrics.economicIndex}</CardTitle>
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <TrendingUp size={14} />
-                  +0.1% Últimos 30 dias
-                </p>
+                <CardTitle className="text-3xl">{metrics.indice_economico_medio || 0}</CardTitle>
+                {metrics.indice_economico_change && (
+                  <p className={`text-sm flex items-center gap-1 ${metrics.indice_economico_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {metrics.indice_economico_change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {Math.abs(metrics.indice_economico_change)}% vs mês anterior
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={metrics.trendsData.slice(-7)}>
+                  <LineChart data={trendsData.slice(-7)}>
                     <Line
                       type="monotone"
                       dataKey="economic"
