@@ -33,7 +33,8 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<LoginPage />} />
+              <Route path="/" element={<PersonalDataPage />} />
+              <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/dashboard" element={
@@ -57,7 +58,6 @@ const App = () => (
                 </ProtectedRoute>
               } />
               <Route path="/result/:id" element={<ResultsPage />} />
-              <Route path="/form" element={<PersonalDataPage />} />
               <Route path="/property-info" element={<PropertyInfoPage />} />
               <Route path="/economic-info" element={<EconomicInfoPage />} />
               <Route path="/social-info" element={<SocialInfoPage />} />

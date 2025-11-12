@@ -107,7 +107,7 @@ export function FormResponsesPage() {
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate('/');
+      navigate('/login');
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
     }

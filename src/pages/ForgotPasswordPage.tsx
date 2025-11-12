@@ -133,7 +133,7 @@ const ForgotPasswordPage = () => {
               <button
                 type="button"
                 className="text-sm text-[#00703c] hover:underline font-medium"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/login")}
               >
                 Voltar ao login
               </button>

@@ -21,13 +21,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
 
     if (!user) {
-      return <Navigate to="/" replace />;
+      return <Navigate to="/login" replace />;
     }
 
     return <>{children}</>;
   } catch (error) {
     console.error('Erro no ProtectedRoute:', error);
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 };
 

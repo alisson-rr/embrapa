@@ -160,7 +160,7 @@ const PermissionsPage = () => {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/');
+    navigate('/login');
   };
 
   const formatDate = (dateString: string) => {

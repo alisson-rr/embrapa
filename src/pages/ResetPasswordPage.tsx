@@ -81,7 +81,7 @@ const ResetPasswordPage = () => {
         description: "Você será redirecionado para o login.",
       });
       setTimeout(() => {
-        navigate("/");
+        navigate("/login");
       }, 2000);
     }
   };

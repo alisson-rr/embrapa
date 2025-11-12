@@ -181,7 +181,7 @@ const SettingsPage = () => {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/');
+    navigate('/login');
   };
 
   return (

@@ -378,7 +378,7 @@ const ResultsPage = () => {
         {/* Botão voltar ao início */}
         <div className="text-center mt-8">
           <Button
-            onClick={() => navigate("/form")}
+            onClick={() => navigate("/")}
             variant="outline"
             className="border-[#00703c] text-[#00703c] hover:bg-[#00703c] hover:text-white"
           >
