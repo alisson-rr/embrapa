@@ -58,7 +58,6 @@ const App = () => (
               } />
               <Route path="/result/:id" element={<ResultsPage />} />
               <Route path="/form" element={<PersonalDataPage />} />
-              <Route path="/barraform" element={<PersonalDataPage />} />
               <Route path="/property-info" element={<PropertyInfoPage />} />
               <Route path="/economic-info" element={<EconomicInfoPage />} />
               <Route path="/social-info" element={<SocialInfoPage />} />
