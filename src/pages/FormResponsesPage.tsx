@@ -13,14 +13,30 @@ import {
   X,
   Search,
   ChevronDown,
+  ChevronUp,
   Eye,
-  Trash2,
   Filter,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
+import { Label } from '../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 interface FormResponse {
   id: string;
@@ -30,7 +46,43 @@ interface FormResponse {
   location: string;
   created_at: string;
   form_id: string;
+  cidade?: string;
+  estado?: string;
 }
+
+type SortField = 'user_name' | 'property_name' | 'property_type' | 'location' | 'created_at';
+type SortDirection = 'asc' | 'desc';
+
+// Estados brasileiros
+const ESTADOS_BRASIL = [
+  { value: 'AC', label: 'Acre' },
+  { value: 'AL', label: 'Alagoas' },
+  { value: 'AP', label: 'Amapá' },
+  { value: 'AM', label: 'Amazonas' },
+  { value: 'BA', label: 'Bahia' },
+  { value: 'CE', label: 'Ceará' },
+  { value: 'DF', label: 'Distrito Federal' },
+  { value: 'ES', label: 'Espírito Santo' },
+  { value: 'GO', label: 'Goiás' },
+  { value: 'MA', label: 'Maranhão' },
+  { value: 'MT', label: 'Mato Grosso' },
+  { value: 'MS', label: 'Mato Grosso do Sul' },
+  { value: 'MG', label: 'Minas Gerais' },
+  { value: 'PA', label: 'Pará' },
+  { value: 'PB', label: 'Paraíba' },
+  { value: 'PR', label: 'Paraná' },
+  { value: 'PE', label: 'Pernambuco' },
+  { value: 'PI', label: 'Piauí' },
+  { value: 'RJ', label: 'Rio de Janeiro' },
+  { value: 'RN', label: 'Rio Grande do Norte' },
+  { value: 'RS', label: 'Rio Grande do Sul' },
+  { value: 'RO', label: 'Rondônia' },
+  { value: 'RR', label: 'Roraima' },
+  { value: 'SC', label: 'Santa Catarina' },
+  { value: 'SP', label: 'São Paulo' },
+  { value: 'SE', label: 'Sergipe' },
+  { value: 'TO', label: 'Tocantins' },
+];
 
 export function FormResponsesPage() {
   const navigate = useNavigate();
@@ -45,11 +97,21 @@ export function FormResponsesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
+  // Filtros
+  const [filterCity, setFilterCity] = useState('');
+  const [filterState, setFilterState] = useState('');
+  const [filterProperty, setFilterProperty] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   // Carregar respostas do formulário
   useEffect(() => {
     fetchFormResponses();
-  }, [currentPage, itemsPerPage, searchTerm]);
+  }, [currentPage, itemsPerPage, searchTerm, sortField, sortDirection, filterCity, filterState, filterProperty, filterDateFrom, filterDateTo]);
 
   const fetchFormResponses = async () => {
     try {
@@ -65,8 +127,33 @@ export function FormResponsesPage() {
         query = query.or(`nome_usuario.ilike.%${searchTerm}%,nome_fazenda.ilike.%${searchTerm}%`);
       }
 
-      // Ordenação por data
-      query = query.order('data_resposta', { ascending: false });
+      // Aplicar filtros
+      if (filterCity) {
+        query = query.ilike('municipio', `%${filterCity}%`);
+      }
+      if (filterState) {
+        query = query.eq('estado', filterState);
+      }
+      if (filterProperty) {
+        query = query.ilike('nome_fazenda', `%${filterProperty}%`);
+      }
+      if (filterDateFrom) {
+        query = query.gte('data_resposta', filterDateFrom);
+      }
+      if (filterDateTo) {
+        query = query.lte('data_resposta', filterDateTo);
+      }
+
+      // Ordenação dinâmica
+      const orderFieldMap: Record<SortField, string> = {
+        'user_name': 'nome_usuario',
+        'property_name': 'nome_fazenda',
+        'property_type': 'sistema_producao',
+        'location': 'localizacao',
+        'created_at': 'data_resposta'
+      };
+      
+      query = query.order(orderFieldMap[sortField], { ascending: sortDirection === 'asc' });
 
       // Paginação
       const start = (currentPage - 1) * itemsPerPage;
@@ -87,7 +174,9 @@ export function FormResponsesPage() {
         property_type: item.sistema_producao || item.tipo_pecuaria || 'N/A',
         location: item.localizacao || 'N/A',
         created_at: item.data_formatada || 'N/A',
-        form_id: item.form_id
+        form_id: item.form_id,
+        cidade: item.municipio,
+        estado: item.estado
       }));
 
       setResponses(formattedResponses);
@@ -118,31 +207,29 @@ export function FormResponsesPage() {
     navigate(`/result/${formId}`);
   };
 
-  const handleDeleteResponse = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta resposta?')) {
-      try {
-        const { error } = await supabase
-          .from('forms')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-
-        toast({
-          title: 'Sucesso',
-          description: 'Resposta excluída com sucesso',
-        });
-
-        fetchFormResponses();
-      } catch (error) {
-        console.error('Erro ao excluir resposta:', error);
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível excluir a resposta',
-          variant: 'destructive',
-        });
-      }
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Alternar direção se for o mesmo campo
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Novo campo, começar com ascendente
+      setSortField(field);
+      setSortDirection('asc');
     }
+  };
+
+  const clearFilters = () => {
+    setFilterCity('');
+    setFilterState('');
+    setFilterProperty('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setIsFilterModalOpen(false);
+  };
+
+  const applyFilters = () => {
+    setCurrentPage(1);
+    setIsFilterModalOpen(false);
   };
 
   // Menu items da sidebar
@@ -320,9 +407,18 @@ export function FormResponsesPage() {
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                    onClick={() => setIsFilterModalOpen(true)}
+                  >
                     <Filter className="h-4 w-4" />
                     Filtrar
+                    {(filterCity || filterState || filterProperty || filterDateFrom || filterDateTo) && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-[#00703c] text-white rounded-full">
+                        {[filterCity, filterState, filterProperty, filterDateFrom, filterDateTo].filter(Boolean).length}
+                      </span>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -334,33 +430,58 @@ export function FormResponsesPage() {
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button className="flex items-center gap-1">
+                      <button 
+                        className="flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort('user_name')}
+                      >
                         Nome do usuário
-                        <ChevronDown className="h-3 w-3" />
+                        {sortField === 'user_name' ? (
+                          sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        ) : <ChevronDown className="h-3 w-3 opacity-50" />}
                       </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button className="flex items-center gap-1">
+                      <button 
+                        className="flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort('property_name')}
+                      >
                         Nome da fazenda
-                        <ChevronDown className="h-3 w-3" />
+                        {sortField === 'property_name' ? (
+                          sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        ) : <ChevronDown className="h-3 w-3 opacity-50" />}
                       </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button className="flex items-center gap-1">
+                      <button 
+                        className="flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort('property_type')}
+                      >
                         Tipo de propriedade
-                        <ChevronDown className="h-3 w-3" />
+                        {sortField === 'property_type' ? (
+                          sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        ) : <ChevronDown className="h-3 w-3 opacity-50" />}
                       </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button className="flex items-center gap-1">
+                      <button 
+                        className="flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort('location')}
+                      >
                         Localização
-                        <ChevronDown className="h-3 w-3" />
+                        {sortField === 'location' ? (
+                          sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        ) : <ChevronDown className="h-3 w-3 opacity-50" />}
                       </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button className="flex items-center gap-1">
+                      <button 
+                        className="flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort('created_at')}
+                      >
                         Data
-                        <ChevronDown className="h-3 w-3" />
+                        {sortField === 'created_at' ? (
+                          sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        ) : <ChevronDown className="h-3 w-3 opacity-50" />}
                       </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -400,22 +521,13 @@ export function FormResponsesPage() {
                           {response.created_at}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleViewResponse(response.form_id)}
-                              className="p-2 text-gray-400 hover:text-[#00703c] hover:bg-gray-100 rounded transition-colors"
-                              title="Visualizar resultado"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteResponse(response.id)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded transition-colors"
-                              title="Excluir"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleViewResponse(response.form_id)}
+                            className="p-2 text-gray-400 hover:text-[#00703c] hover:bg-gray-100 rounded transition-colors"
+                            title="Visualizar resultado"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -497,6 +609,110 @@ export function FormResponsesPage() {
           </div>
         </main>
       </div>
+
+      {/* Modal de Filtros */}
+      <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Filtros de Pesquisa</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            {/* Cidade */}
+            <div className="grid gap-2">
+              <Label htmlFor="filterCity">Cidade</Label>
+              <Input
+                id="filterCity"
+                placeholder="Digite o nome da cidade"
+                value={filterCity}
+                onChange={(e) => setFilterCity(e.target.value)}
+              />
+            </div>
+
+            {/* Estado */}
+            <div className="grid gap-2">
+              <Label htmlFor="filterState">Estado</Label>
+              <Select value={filterState} onValueChange={setFilterState}>
+                <SelectTrigger id="filterState">
+                  <SelectValue placeholder="Selecione um estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADOS_BRASIL.map((estado) => (
+                    <SelectItem key={estado.value} value={estado.value}>
+                      {estado.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Propriedade */}
+            <div className="grid gap-2">
+              <Label htmlFor="filterProperty">Nome da Propriedade</Label>
+              <Input
+                id="filterProperty"
+                placeholder="Digite o nome da propriedade"
+                value={filterProperty}
+                onChange={(e) => setFilterProperty(e.target.value)}
+              />
+            </div>
+
+            {/* Data De */}
+            <div className="grid gap-2">
+              <Label htmlFor="filterDateFrom">Data De</Label>
+              <div className="relative">
+                <Input
+                  id="filterDateFrom"
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                />
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Data Até */}
+            <div className="grid gap-2">
+              <Label htmlFor="filterDateTo">Data Até</Label>
+              <div className="relative">
+                <Input
+                  id="filterDateTo"
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                />
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={clearFilters}
+              type="button"
+            >
+              Limpar Filtros
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsFilterModalOpen(false)}
+                type="button"
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="bg-[#00703c] hover:bg-[#005a30]"
+                onClick={applyFilters}
+                type="button"
+              >
+                Aplicar
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -371,7 +371,7 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Últimas respostas</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/responses')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/form-responses')}>
                   <ChevronRight size={16} />
                 </Button>
               </CardHeader>
