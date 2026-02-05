@@ -1,11 +1,11 @@
 // ================================================
 // Implementação dos cálculos Fuzzy em TypeScript
-// Baseado no código Python original
+// Baseado FIELMENTE no código Python original (Fuzzy.py)
 // ================================================
 
 import { supabase } from '@/lib/supabase';
 
-// Dados de regulamentação ambiental por estado
+// Dados de regulamentação ambiental por estado (% de reserva legal obrigatória)
 const REGULAMENTACAO: Record<string, number> = {
   "AM": 0.8, "AC": 0.8, "RO": 0.8, "RR": 0.8, "AP": 0.8, "PA": 0.8,
   "DF": 0.35, "GO": 0.35, "MT": 0.35, "TO": 0.35, "MG": 0.35, "MA": 0.35, "MS": 0.35,
@@ -21,7 +21,7 @@ const CHUVA: Record<string, number> = {
   "BA": 926, "SE": 1068, "AL": 1325, "PE": 930, "PB": 1837, "RN": 1214, "CE": 1123, "PI": 1039
 };
 
-// Dados de evapotranspiração por estado
+// Dados de evapotranspiração por estado (mm)
 const EVAPO: Record<string, number> = {
   "AM": 2221, "AC": 1958, "RO": 1750, "RR": 1800, "AP": 2182, "PA": 2199,
   "DF": 1304, "GO": 1689, "MT": 2066, "TO": 2138, "MG": 1512, "MA": 2181, "MS": 2000,
@@ -29,14 +29,59 @@ const EVAPO: Record<string, number> = {
   "BA": 1722, "SE": 1804, "AL": 1711, "PE": 1932, "PB": 2022, "RN": 2062, "CE": 1878, "PI": 2668
 };
 
+// ================================================
+// FUNÇÕES DE PERTINÊNCIA FUZZY (trimf e trapmf)
+// Baseadas no skfuzzy do Python
+// ================================================
+
+// Função de pertinência triangular (trimf)
+const trimf = (x: number, params: [number, number, number]): number => {
+  const [a, b, c] = params;
+  if (x <= a || x >= c) return 0;
+  if (x === b) return 1;
+  if (x < b) return (x - a) / (b - a);
+  return (c - x) / (c - b);
+};
+
+// Função de pertinência trapezoidal (trapmf)
+const trapmf = (x: number, params: [number, number, number, number]): number => {
+  const [a, b, c, d] = params;
+  if (x <= a || x >= d) return 0;
+  if (x >= b && x <= c) return 1;
+  if (x < b) return (x - a) / (b - a);
+  return (d - x) / (d - c);
+};
+
+// Constantes para normalização de saída (do Python original)
+const OUTPUT_MIN = 8.33;
+const OUTPUT_MAX = 80.56;
+const normalizeOutput = (value: number): number => {
+  return ((value - OUTPUT_MIN) * 100) / (OUTPUT_MAX - OUTPUT_MIN);
+};
+
+// Defuzzificação por centroide (simplificada)
+const defuzzifyCentroid = (memberships: Record<string, number>, centers: Record<string, number>): number => {
+  let numerator = 0;
+  let denominator = 0;
+  
+  for (const key of Object.keys(memberships)) {
+    numerator += memberships[key] * centers[key];
+    denominator += memberships[key];
+  }
+  
+  if (denominator === 0) return 50;
+  return numerator / denominator;
+};
+
 // Função para normalizar valor entre 0 e 100
 const normalize = (value: number, min: number, max: number): number => {
+  if (min === max) return 50;
   if (value <= min) return 0;
   if (value >= max) return 100;
   return ((value - min) / (max - min)) * 100;
 };
 
-// Função fuzzy simplificada para calcular pertinência
+// Função fuzzy para calcular pertinência em 3 níveis
 const fuzzyMembership = (value: number, low: number, medium: number, high: number): { low: number; medium: number; high: number } => {
   let lowMembership = 0;
   let mediumMembership = 0;
@@ -92,14 +137,23 @@ interface FormData {
     production_cost: number;
     property_value: number;
     financing_percentage: number;
+    decision_maker_salary: number;
   }[];
   
-  // Dados sociais
+  // Dados sociais (atualizado com novos campos do Python)
   social_data: {
     permanent_employees: number;
+    temporary_employees: number;
     highest_salary: number;
     lowest_salary: number;
-    technical_assistance: boolean;
+    oldest_family_member_age: number;
+    youngest_family_member_age: number;
+    operational_courses: number;
+    technical_courses: number;
+    specialization_courses: number;
+    has_technical_assistance: boolean;
+    has_profit_sharing: boolean;
+    has_health_plan: boolean;
   }[];
   
   // Dados ambientais
@@ -131,7 +185,7 @@ export function calcularIndiceEconomico(formData: FormData): number {
     const DL = economic.financing_percentage / 100;
     
     // WI = Salário do proprietário / Salário médio nacional (R$ 3.225)
-    const salarioProprietario = lucro / 12; // Lucro mensal como proxy do salário
+    const salarioProprietario = economic.decision_maker_salary || (lucro / 12);
     const WI = salarioProprietario / 3225;
     
     // Aplicar fuzzy membership
@@ -159,6 +213,7 @@ export function calcularIndiceEconomico(formData: FormData): number {
 
 // ================================================
 // CÁLCULO DO ÍNDICE SOCIAL
+// Baseado no Python: JA, TC, JQ, Anos de Estudo, Plano Saúde, Compartilha Lucros
 // ================================================
 export function calcularIndiceSocial(formData: FormData): number {
   try {
@@ -169,47 +224,67 @@ export function calcularIndiceSocial(formData: FormData): number {
     
     // Anos de estudo baseado no nível de educação
     const educationYears: Record<string, number> = {
-      'Analfabeto': 0,
-      'Ensino Fundamental Incompleto': 4,
-      'Ensino Fundamental': 8,
-      'Ensino Médio Incompleto': 10,
-      'Ensino Médio': 12,
-      'Ensino Superior Incompleto': 14,
-      'Ensino Superior': 16,
-      'Pós-Graduação': 18
+      'sem-escolaridade': 0,
+      'fundamental-incompleto': 4,
+      'fundamental-completo': 8,
+      'medio-incompleto': 10,
+      'medio-completo': 12,
+      'tecnico-incompleto': 13,
+      'tecnico-completo': 14,
+      'superior-incompleto': 15,
+      'superior-completo': 16,
+      'pos-graduacao': 18
     };
     
     const anosEstudo = educationYears[personal.education_level] || 8;
     
-    // JA - Job Attractiveness (simplificado - baseado em salários)
-    const JA = social.lowest_salary / Math.max(social.highest_salary, 1);
+    // JA - Job Attractiveness (Python: idade_jovem / idade_velho)
+    // ATENÇÃO: No Python, JA BAIXO = índice ALTO (inverso!)
+    const idadeJovem = social.youngest_family_member_age || 25;
+    const idadeVelho = social.oldest_family_member_age || 60;
+    const JA = idadeJovem / Math.max(idadeVelho, 1);
     
-    // TC - Total de cursos (usar assistência técnica como proxy)
-    const TC = social.technical_assistance ? 10 : 2;
+    // TC - Total de Cursos (Python: P1 + 2*P2 + 3*P3)
+    const cursosOp = social.operational_courses || 0;
+    const cursosTec = social.technical_courses || 0;
+    const cursosEsp = social.specialization_courses || 0;
+    const TC = cursosOp + (2 * cursosTec) + (3 * cursosEsp);
     
-    // JQ - Job Quality (baseado em funcionários permanentes)
-    const JQ = social.permanent_employees > 0 ? 10 : 2;
+    // JQ - Job Quality (Python: (perm/(temp+1))/(temp+1))
+    const permanentes = social.permanent_employees || 0;
+    const temporarios = social.temporary_employees || 0;
+    const JQ = (permanentes / (temporarios + 1)) / (temporarios + 1);
     
-    // Plano de saúde e compartilhamento de lucros (simplificado)
-    const planoSaude = social.highest_salary > 5000 ? 1 : 0;
-    const compartilhaLucros = social.highest_salary > 8000 ? 1 : 0;
+    // Plano de saúde e compartilhamento de lucros (0 ou 1)
+    const planoSaude = social.has_health_plan ? 1 : 0;
+    const compartilhaLucros = social.has_profit_sharing ? 1 : 0;
     
-    // Aplicar fuzzy membership
-    const estMembership = fuzzyMembership(normalize(anosEstudo, 0, 20), 25, 50, 75);
-    const jaMembership = fuzzyMembership(normalize(JA, 0, 1), 25, 50, 75);
-    const tcMembership = fuzzyMembership(normalize(TC, 0, 20), 25, 50, 75);
-    const jqMembership = fuzzyMembership(normalize(JQ, 0, 20), 25, 50, 75);
+    // Aplicar fuzzy membership (conforme ranges do Python)
+    // Anos de estudo: 0-20
+    const estMembership = fuzzyMembership(anosEstudo, 5, 10, 16);
     
-    // Combinar os memberships
+    // JA: 0-1 (INVERTIDO - JA baixo = bom para sustentabilidade social)
+    // No Python: JA muito_alto -> índice muito_baixo
+    const jaInvertido = 1 - JA; // Inverte para que baixo JA = alto membership
+    const jaMembership = fuzzyMembership(jaInvertido * 100, 25, 50, 75);
+    
+    // TC: 0-20
+    const tcMembership = fuzzyMembership(TC, 4, 10, 16);
+    
+    // JQ: 0-20 (normalizado)
+    const jqNorm = Math.min(JQ * 10, 20);
+    const jqMembership = fuzzyMembership(jqNorm, 4, 10, 16);
+    
+    // Combinar os memberships (média ponderada)
     const combinedMembership = {
       low: (estMembership.low + jaMembership.low + tcMembership.low + jqMembership.low) / 4,
       medium: (estMembership.medium + jaMembership.medium + tcMembership.medium + jqMembership.medium) / 4,
       high: (estMembership.high + jaMembership.high + tcMembership.high + jqMembership.high) / 4
     };
     
-    // Adicionar bônus por benefícios
-    if (planoSaude) combinedMembership.high += 0.1;
-    if (compartilhaLucros) combinedMembership.high += 0.1;
+    // Adicionar bônus por benefícios (conforme regras do Python)
+    if (planoSaude) combinedMembership.high += 0.15;
+    if (compartilhaLucros) combinedMembership.high += 0.15;
     
     // Normalizar
     const total = combinedMembership.low + combinedMembership.medium + combinedMembership.high;
@@ -222,7 +297,10 @@ export function calcularIndiceSocial(formData: FormData): number {
     // Defuzzificar
     const indice = defuzzify(combinedMembership);
     
-    return Math.min(100, Math.max(0, indice));
+    // Normalizar saída conforme Python: (resultado-20.83)*100/(80.56-20.83)
+    const indiceNormalizado = ((indice - 20.83) * 100) / (80.56 - 20.83);
+    
+    return Math.min(100, Math.max(0, indiceNormalizado));
   } catch (error) {
     console.error('Erro ao calcular índice social:', error);
     return 0;
