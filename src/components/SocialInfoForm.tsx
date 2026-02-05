@@ -35,23 +35,23 @@ interface SocialInfoFormProps {
 
 const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: SocialInfoFormProps) => {
   const [formData, setFormData] = useState<SocialInfoFormData>({
-    permanentEmployees: initialData.permanentEmployees || "5",
-    highestEducationEmployee: initialData.highestEducationEmployee || "superior-completo",
-    highestSalary: initialData.highestSalary || "R$ 8.000,00",
-    lowestEducationEmployee: initialData.lowestEducationEmployee || "fundamental-completo",
-    lowestSalary: initialData.lowestSalary || "R$ 1.500,00",
-    temporaryEmployees: initialData.temporaryEmployees || "3",
-    outsourcedAverageSalary: initialData.outsourcedAverageSalary || "R$ 2.000,00",
-    // Novas perguntas sociais
-    oldestFamilyMemberAge: initialData.oldestFamilyMemberAge || "65",
-    youngestFamilyMemberAge: initialData.youngestFamilyMemberAge || "18",
-    operationalCourses: initialData.operationalCourses || "2",
-    technicalCourses: initialData.technicalCourses || "1",
-    specializationCourses: initialData.specializationCourses || "0",
-    hasTechnicalAssistance: initialData.hasTechnicalAssistance || "sim",
-    technicalAssistanceType: initialData.technicalAssistanceType || "Emater",
-    hasProfitSharing: initialData.hasProfitSharing || "nao",
-    hasHealthPlan: initialData.hasHealthPlan || "sim",
+    permanentEmployees: initialData.permanentEmployees || "",
+    highestEducationEmployee: initialData.highestEducationEmployee || "",
+    highestSalary: initialData.highestSalary || "",
+    lowestEducationEmployee: initialData.lowestEducationEmployee || "",
+    lowestSalary: initialData.lowestSalary || "",
+    temporaryEmployees: initialData.temporaryEmployees || "",
+    outsourcedAverageSalary: initialData.outsourcedAverageSalary || "",
+    // Novos campos sociais
+    oldestFamilyMemberAge: initialData.oldestFamilyMemberAge || "",
+    youngestFamilyMemberAge: initialData.youngestFamilyMemberAge || "",
+    operationalCourses: initialData.operationalCourses || "",
+    technicalCourses: initialData.technicalCourses || "",
+    specializationCourses: initialData.specializationCourses || "",
+    hasTechnicalAssistance: initialData.hasTechnicalAssistance || "",
+    technicalAssistanceType: initialData.technicalAssistanceType || "",
+    hasProfitSharing: initialData.hasProfitSharing || "",
+    hasHealthPlan: initialData.hasHealthPlan || "",
   });
 
   // Check initial validation
