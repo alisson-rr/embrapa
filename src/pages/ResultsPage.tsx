@@ -120,19 +120,28 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-2">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">
-                    4% do faturamento é destinado a financiamentos
+                    {formData?.economic_data?.[0]?.financing_percentage 
+                      ? `${formData.economic_data[0].financing_percentage}% do faturamento é destinado a financiamentos`
+                      : 'Percentual de financiamentos não informado'
+                    }
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">
-                    8% dos seus funcionários recebem abaixo da média do seu estado
+                    {formData?.social_data?.[0]?.permanent_employees 
+                      ? `${formData.social_data[0].permanent_employees} funcionários permanentes na propriedade`
+                      : 'Número de funcionários não informado'
+                    }
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">
-                    Baixo percentual de matéria orgânica no solo
+                    {formData?.environmental_data?.[0]?.monthly_fuel_consumption 
+                      ? `Consumo mensal de combustível: ${formData.environmental_data[0].monthly_fuel_consumption} litros`
+                      : 'Dados ambientais não informados'
+                    }
                   </span>
                 </div>
               </div>
@@ -264,19 +273,24 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    <strong className="font-semibold">{formData?.economic_data?.[0]?.financing_percentage ? `${formData.economic_data[0].financing_percentage}% do faturamento é destinado a financiamentos` : '4% do faturamento é destinado a financiamentos'}</strong>
+                    <strong className="font-semibold">
+                      {formData?.economic_data?.[0]?.financing_percentage 
+                        ? `${formData.economic_data[0].financing_percentage}% do faturamento é destinado a financiamentos`
+                        : 'Percentual de financiamentos não informado'
+                      }
+                    </strong>
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Custo de produção da propriedade é R$ {formData?.economic_data?.[0]?.production_cost?.toLocaleString('pt-BR') || '0'},00.
+                    Custo de produção: R$ {formData?.economic_data?.[0]?.production_cost?.toLocaleString('pt-BR') || '0'},00
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    A propriedade tem o valor total de R$ 1.000,00.
+                    Valor da propriedade: R$ {formData?.economic_data?.[0]?.property_value?.toLocaleString('pt-BR') || '0'},00
                   </span>
                 </div>
               </div>
@@ -304,19 +318,27 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#FDB022] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    <strong className="font-semibold">X% dos seus funcionários recebem abaixo da média do seu estado</strong>
+                    <strong className="font-semibold">
+                      {formData?.social_data?.[0]?.permanent_employees 
+                        ? `${formData.social_data[0].permanent_employees} funcionários permanentes na propriedade`
+                        : 'Número de funcionários não informado'
+                      }
+                    </strong>
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#FDB022] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    O custo de mão de obra é de R$ 1.000,00.
+                    Maior salário: R$ {formData?.social_data?.[0]?.highest_salary?.toLocaleString('pt-BR') || '0'},00
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#FDB022] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Média salarial dos funcionários é abaixo da média.
+                    {formData?.social_data?.[0]?.has_health_plan === 'sim' 
+                      ? 'Plano de saúde oferecido aos funcionários'
+                      : 'Plano de saúde não oferecido'
+                    }
                   </span>
                 </div>
               </div>
@@ -344,19 +366,19 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#D92D20] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Baixo percentual de matéria orgânica no solo.
+                    Matéria orgânica no solo: {formData?.environmental_data?.[0]?.organic_matter_percentage || '0'}%
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#D92D20] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Uso de combustível é maior do que a média
+                    Consumo mensal de combustível: {formData?.environmental_data?.[0]?.monthly_fuel_consumption || '0'} litros
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#D92D20] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    A energia elétrica utilizada é acima do percentual médio.
+                    Custo mensal de energia: R$ {formData?.environmental_data?.[0]?.monthly_electricity_expense?.toLocaleString('pt-BR') || '0'},00
                   </span>
                 </div>
               </div>
