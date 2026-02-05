@@ -44,23 +44,23 @@ interface PropertyInfoFormProps {
 
 const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: PropertyInfoFormProps) => {
   const [formData, setFormData] = useState<PropertyInfoFormData>({
-    totalArea: initialData.totalArea || "",
-    productionArea: initialData.productionArea || "",
-    productionSystem: initialData.productionSystem || "",
+    totalArea: initialData.totalArea || "150,50",
+    productionArea: initialData.productionArea || "120,25",
+    productionSystem: initialData.productionSystem || "lavoura",
     productionSystemDetail: initialData.productionSystemDetail || "",
-    systemUsageTime: initialData.systemUsageTime || "",
-    activityTypes: initialData.activityTypes || [],
-    crops: initialData.crops || [],
-    useCoverCrop: initialData.useCoverCrop || "",
-    coverCropTypes: initialData.coverCropTypes || "",
+    systemUsageTime: initialData.systemUsageTime || "10",
+    activityTypes: initialData.activityTypes || ["lavoura"],
+    crops: initialData.crops || [{ name: "Soja", plantingMonth: "10", areaPercentage: "80" }],
+    useCoverCrop: initialData.useCoverCrop || "sim",
+    coverCropTypes: initialData.coverCropTypes || "Aveia, Nabo Forrageiro",
     pastureTypes: initialData.pastureTypes || "",
     pastureSpecies: initialData.pastureSpecies || "",
     useSilage: initialData.useSilage || "",
     silageHectares: initialData.silageHectares || "",
     forestSpecies: initialData.forestSpecies || "",
     forestArea: initialData.forestArea || "",
-    permanentProtectionArea: initialData.permanentProtectionArea || "",
-    legalReserveArea: initialData.legalReserveArea || "",
+    permanentProtectionArea: initialData.permanentProtectionArea || "15,00",
+    legalReserveArea: initialData.legalReserveArea || "30,00",
   });
 
   // Função auxiliar para converter string com vírgula para número

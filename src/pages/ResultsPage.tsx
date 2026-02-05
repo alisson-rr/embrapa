@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import LoadingCalculation from "@/components/LoadingCalculation";
 import { getFormResults } from "@/lib/submitForm";
 import { supabase } from "@/lib/supabase";
+import { calcularIndices } from "@/lib/fuzzyCalculations";
 import { ArrowRight, DollarSign, ThumbsUp, Cloud, BarChart3, Users, Leaf, TrendingUp, CheckCircle } from "lucide-react";
 
 interface FormDataResult {
@@ -34,7 +35,11 @@ const ResultsPage = () => {
         
         // Se há um ID na URL, buscar dados do formulário específico
         if (id) {
-          const { data: formData, error: formError } = await supabase
+          // Primeiro, calcular os índices fuzzy
+          const indices = await calcularIndices(id);
+          
+          // Depois buscar dados completos do formulário
+          const { data: formResult, error: formError } = await supabase
             .from('forms')
             .select('*, personal_data(*), property_data(*), economic_data(*), social_data(*), environmental_data(*)')
             .eq('id', id)
@@ -43,14 +48,21 @@ const ResultsPage = () => {
           if (formError) {
             console.error('Erro ao buscar dados do formulário:', formError);
           } else {
-            setFormData(formData);
+            // Atualizar formData com os índices calculados
+            setFormData({
+              ...formResult,
+              indice_economico: indices.economico,
+              indice_social: indices.social,
+              indice_ambiental: indices.ambiental,
+              indice_sustentabilidade: indices.sustentabilidade
+            });
           }
         }
         
-        // Simular tempo de processamento para mostrar a animação
+        // Tempo de processamento para mostrar a animação
         setTimeout(() => {
           setIsLoading(false);
-        }, 2000);
+        }, 1500);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         setIsLoading(false);
@@ -120,28 +132,19 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-2">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">
-                    {formData?.economic_data?.[0]?.financing_percentage 
-                      ? `${formData.economic_data[0].financing_percentage}% do faturamento é destinado a financiamentos`
-                      : 'Percentual de financiamentos não informado'
-                    }
+                    {formData?.economic_data?.[0]?.financing_percentage || 0}% do faturamento é destinado a financiamentos
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">
-                    {formData?.social_data?.[0]?.permanent_employees 
-                      ? `${formData.social_data[0].permanent_employees} funcionários permanentes na propriedade`
-                      : 'Número de funcionários não informado'
-                    }
+                    {formData?.social_data?.[0]?.permanent_employees || 0} funcionários permanentes na propriedade
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">
-                    {formData?.environmental_data?.[0]?.monthly_fuel_consumption 
-                      ? `Consumo mensal de combustível: ${formData.environmental_data[0].monthly_fuel_consumption} litros`
-                      : 'Dados ambientais não informados'
-                    }
+                    Área total da propriedade: {formData?.property_data?.[0]?.total_area?.toLocaleString('pt-BR') || 0} ha
                   </span>
                 </div>
               </div>
@@ -273,24 +276,19 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    <strong className="font-semibold">
-                      {formData?.economic_data?.[0]?.financing_percentage 
-                        ? `${formData.economic_data[0].financing_percentage}% do faturamento é destinado a financiamentos`
-                        : 'Percentual de financiamentos não informado'
-                      }
-                    </strong>
+                    <strong className="font-semibold">{formData?.economic_data?.[0]?.financing_percentage ? `${formData.economic_data[0].financing_percentage}% do faturamento é destinado a financiamentos` : '4% do faturamento é destinado a financiamentos'}</strong>
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Custo de produção: R$ {formData?.economic_data?.[0]?.production_cost?.toLocaleString('pt-BR') || '0'},00
+                    Custo de produção da propriedade é R$ {formData?.economic_data?.[0]?.production_cost?.toLocaleString('pt-BR') || '0'},00.
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Valor da propriedade: R$ {formData?.economic_data?.[0]?.property_value?.toLocaleString('pt-BR') || '0'},00
+                    A propriedade tem o valor total de R$ {formData?.economic_data?.[0]?.property_value?.toLocaleString('pt-BR') || '0'},00.
                   </span>
                 </div>
               </div>
@@ -318,12 +316,7 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#FDB022] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    <strong className="font-semibold">
-                      {formData?.social_data?.[0]?.permanent_employees 
-                        ? `${formData.social_data[0].permanent_employees} funcionários permanentes na propriedade`
-                        : 'Número de funcionários não informado'
-                      }
-                    </strong>
+                    <strong className="font-semibold">{formData?.social_data?.[0]?.permanent_employees || 0} funcionários permanentes e {formData?.social_data?.[0]?.temporary_employees || 0} temporários</strong>
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
@@ -335,10 +328,7 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#FDB022] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    {formData?.social_data?.[0]?.has_health_plan === 'sim' 
-                      ? 'Plano de saúde oferecido aos funcionários'
-                      : 'Plano de saúde não oferecido'
-                    }
+                    Menor salário: R$ {formData?.social_data?.[0]?.lowest_salary?.toLocaleString('pt-BR') || '0'},00
                   </span>
                 </div>
               </div>
@@ -366,19 +356,19 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#D92D20] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Matéria orgânica no solo: {formData?.environmental_data?.[0]?.organic_matter_percentage || '0'}%
+                    Área de produção: {formData?.property_data?.[0]?.production_area?.toLocaleString('pt-BR') || 0} ha
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#D92D20] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Consumo mensal de combustível: {formData?.environmental_data?.[0]?.monthly_fuel_consumption || '0'} litros
+                    Consumo mensal de combustível: {formData?.environmental_data?.[0]?.monthly_fuel_consumption?.toLocaleString('pt-BR') || 0} L
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#D92D20] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Custo mensal de energia: R$ {formData?.environmental_data?.[0]?.monthly_electricity_expense?.toLocaleString('pt-BR') || '0'},00
+                    Estado: {formData?.property_data?.[0]?.state || 'Não informado'}
                   </span>
                 </div>
               </div>

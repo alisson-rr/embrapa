@@ -68,15 +68,15 @@ const EnvironmentalInfoForm = ({
   // Lista de culturas disponíveis (vindas do formulário de propriedade)
   const cropOptions = availableCrops.filter(crop => crop.name).map(crop => crop.name);
   const [formData, setFormData] = useState<EnvironmentalInfoFormData>({
-    organicMatterPercentage: initialData.organicMatterPercentage || "",
-    calciumQuantity: initialData.calciumQuantity || "",
+    organicMatterPercentage: initialData.organicMatterPercentage || "3,5%",
+    calciumQuantity: initialData.calciumQuantity || "2000 kg",
     fertilizers: initialData.fertilizers || [],
     herbicides: initialData.herbicides || [],
     fungicides: initialData.fungicides || [],
     insecticides: initialData.insecticides || [],
     otherPesticides: initialData.otherPesticides || [],
-    fuelConsumption: initialData.fuelConsumption || "",
-    electricityExpense: initialData.electricityExpense || "",
+    fuelConsumption: initialData.fuelConsumption || "500 litros/mês",
+    electricityExpense: initialData.electricityExpense || "R$ 1.500",
   });
 
 
