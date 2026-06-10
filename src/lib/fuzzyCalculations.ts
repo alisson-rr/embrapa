@@ -1,137 +1,118 @@
 // ================================================
 // Implementação dos cálculos Fuzzy em TypeScript
-// Baseado FIELMENTE no código Python original (Fuzzy.py)
+// Port FIEL do Mamdani do Fuzzy.py (scikit-fuzzy):
+//   - mesmas funções de pertinência (trimf/trapmf)
+//   - mesmas regras
+//   - agregação por max, implicação por min (Mamdani)
+//   - defuzzificação por centroide sobre o universo 0..100
+//   - mesma normalização final por eixo (constantes do Python)
 // ================================================
 
 import { supabase } from '@/lib/supabase';
 
-// Dados de regulamentação ambiental por estado (% de reserva legal obrigatória)
+// Regulamentação ambiental por estado (% de reserva legal obrigatória)
 const REGULAMENTACAO: Record<string, number> = {
-  "AM": 0.8, "AC": 0.8, "RO": 0.8, "RR": 0.8, "AP": 0.8, "PA": 0.8,
-  "DF": 0.35, "GO": 0.35, "MT": 0.35, "TO": 0.35, "MG": 0.35, "MA": 0.35, "MS": 0.35,
-  "RS": 0.2, "RJ": 0.2, "SP": 0.2, "SC": 0.2, "PR": 0.2, "ES": 0.2,
-  "BA": 0.2, "SE": 0.2, "AL": 0.2, "PE": 0.2, "PB": 0.2, "RN": 0.2, "CE": 0.2, "PI": 0.2
+  AM: 0.8, AC: 0.8, RO: 0.8, RR: 0.8, AP: 0.8, PA: 0.8,
+  DF: 0.35, GO: 0.35, MT: 0.35, TO: 0.35, MG: 0.35, MA: 0.35, MS: 0.35,
+  RS: 0.2, RJ: 0.2, SP: 0.2, SC: 0.2, PR: 0.2, ES: 0.2,
+  BA: 0.2, SE: 0.2, AL: 0.2, PE: 0.2, PB: 0.2, RN: 0.2, CE: 0.2, PI: 0.2,
 };
 
-// Dados de chuva média anual por estado (mm)
+// Chuva média anual por estado (mm)
 const CHUVA: Record<string, number> = {
-  "AM": 2609, "AC": 2158, "RO": 1950, "RR": 1754, "AP": 2525, "PA": 2252,
-  "DF": 1478, "GO": 1511, "MT": 1588, "TO": 1619, "MG": 1226, "MA": 1586, "MS": 1219,
-  "RS": 1635, "RJ": 1403, "SP": 1450, "SC": 1921, "PR": 1802, "ES": 1309,
-  "BA": 926, "SE": 1068, "AL": 1325, "PE": 930, "PB": 1837, "RN": 1214, "CE": 1123, "PI": 1039
+  AM: 2609, AC: 2158, RO: 1950, RR: 1754, AP: 2525, PA: 2252,
+  DF: 1478, GO: 1511, MT: 1588, TO: 1619, MG: 1226, MA: 1586, MS: 1219,
+  RS: 1635, RJ: 1403, SP: 1450, SC: 1921, PR: 1802, ES: 1309,
+  BA: 926, SE: 1068, AL: 1325, PE: 930, PB: 1837, RN: 1214, CE: 1123, PI: 1039,
 };
 
-// Dados de evapotranspiração por estado (mm)
+// Evapotranspiração por estado (mm)
 const EVAPO: Record<string, number> = {
-  "AM": 2221, "AC": 1958, "RO": 1750, "RR": 1800, "AP": 2182, "PA": 2199,
-  "DF": 1304, "GO": 1689, "MT": 2066, "TO": 2138, "MG": 1512, "MA": 2181, "MS": 2000,
-  "RS": 1427, "RJ": 1722, "SP": 1427, "SC": 1242, "PR": 1378, "ES": 1756,
-  "BA": 1722, "SE": 1804, "AL": 1711, "PE": 1932, "PB": 2022, "RN": 2062, "CE": 1878, "PI": 2668
+  AM: 2221, AC: 1958, RO: 1750, RR: 1800, AP: 2182, PA: 2199,
+  DF: 1304, GO: 1689, MT: 2066, TO: 2138, MG: 1512, MA: 2181, MS: 2000,
+  RS: 1427, RJ: 1722, SP: 1427, SC: 1242, PR: 1378, ES: 1756,
+  BA: 1722, SE: 1804, AL: 1711, PE: 1932, PB: 2022, RN: 2062, CE: 1878, PI: 2668,
+};
+
+// Anos de estudo do fazendeiro a partir do nível de escolaridade (universo 0..20)
+const ANOS_ESTUDO: Record<string, number> = {
+  'sem-escolaridade': 0,
+  'fundamental-incompleto': 4,
+  'fundamental-completo': 9,
+  'medio-incompleto': 10,
+  'medio-completo': 12,
+  'tecnico-incompleto': 12,
+  'tecnico-completo': 13,
+  'superior-incompleto': 14,
+  'superior-completo': 16,
+  'pos-graduacao': 18,
 };
 
 // ================================================
-// FUNÇÕES DE PERTINÊNCIA FUZZY (trimf e trapmf)
-// Baseadas no skfuzzy do Python
+// Funções de pertinência (iguais ao skfuzzy)
 // ================================================
-
-// Função de pertinência triangular (trimf)
-const trimf = (x: number, params: [number, number, number]): number => {
-  const [a, b, c] = params;
+const trimf = (x: number, a: number, b: number, c: number): number => {
   if (x <= a || x >= c) return 0;
-  if (x === b) return 1;
-  if (x < b) return (x - a) / (b - a);
-  return (c - x) / (c - b);
+  if (x < b) return b === a ? 1 : (x - a) / (b - a);
+  if (x > b) return c === b ? 1 : (c - x) / (c - b);
+  return 1; // x === b
 };
 
-// Função de pertinência trapezoidal (trapmf)
-const trapmf = (x: number, params: [number, number, number, number]): number => {
-  const [a, b, c, d] = params;
+const trapmf = (x: number, a: number, b: number, c: number, d: number): number => {
   if (x <= a || x >= d) return 0;
   if (x >= b && x <= c) return 1;
-  if (x < b) return (x - a) / (b - a);
-  return (d - x) / (d - c);
+  if (x < b) return b === a ? 1 : (x - a) / (b - a);
+  return d === c ? 1 : (d - x) / (d - c);
 };
 
-// Constantes para normalização de saída (do Python original)
-const OUTPUT_MIN = 8.33;
-const OUTPUT_MAX = 80.56;
-const normalizeOutput = (value: number): number => {
-  return ((value - OUTPUT_MIN) * 100) / (OUTPUT_MAX - OUTPUT_MIN);
+const clamp = (v: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, v));
+
+const num = (v: unknown): number => {
+  const n = typeof v === 'string' ? parseFloat(v) : (v as number);
+  return n == null || Number.isNaN(n) ? 0 : n;
 };
 
-// Defuzzificação por centroide (simplificada)
-const defuzzifyCentroid = (memberships: Record<string, number>, centers: Record<string, number>): number => {
-  let numerator = 0;
-  let denominator = 0;
-  
-  for (const key of Object.keys(memberships)) {
-    numerator += memberships[key] * centers[key];
-    denominator += memberships[key];
+// ================================================
+// Saída comum (indice_*): mesmos conjuntos para os 3 eixos e sustentabilidade
+//   muito_baixo trimf[0,0,25] | baixo trimf[0,25,50]
+//   medio trimf[25,50,75]     | alto trapmf[50,75,100,100]
+// Defuzzificação por centroide sobre 0..100 (passo 1), implicação Mamdani (min).
+// ================================================
+type OutStrength = { mb: number; b: number; m: number; a: number };
+
+const defuzzCentroid = (s: OutStrength): number => {
+  let numr = 0;
+  let den = 0;
+  for (let x = 0; x <= 100; x += 1) {
+    const agg = Math.max(
+      Math.min(s.mb, trimf(x, 0, 0, 25)),
+      Math.min(s.b, trimf(x, 0, 25, 50)),
+      Math.min(s.m, trimf(x, 25, 50, 75)),
+      Math.min(s.a, trapmf(x, 50, 75, 100, 100)),
+    );
+    numr += x * agg;
+    den += agg;
   }
-  
-  if (denominator === 0) return 50;
-  return numerator / denominator;
+  return den === 0 ? 0 : numr / den;
 };
 
-// Função para normalizar valor entre 0 e 100
-const normalize = (value: number, min: number, max: number): number => {
-  if (min === max) return 50;
-  if (value <= min) return 0;
-  if (value >= max) return 100;
-  return ((value - min) / (max - min)) * 100;
+// Aplica uma regra: out[label] = max(out[label], força)
+const fire = (out: OutStrength, label: keyof OutStrength, strength: number): void => {
+  out[label] = Math.max(out[label], strength);
 };
 
-// Função fuzzy para calcular pertinência em 3 níveis
-const fuzzyMembership = (value: number, low: number, medium: number, high: number): { low: number; medium: number; high: number } => {
-  let lowMembership = 0;
-  let mediumMembership = 0;
-  let highMembership = 0;
-
-  if (value <= low) {
-    lowMembership = 1;
-  } else if (value > low && value <= medium) {
-    lowMembership = (medium - value) / (medium - low);
-    mediumMembership = (value - low) / (medium - low);
-  } else if (value > medium && value <= high) {
-    mediumMembership = (high - value) / (high - medium);
-    highMembership = (value - medium) / (high - medium);
-  } else {
-    highMembership = 1;
-  }
-
-  return { low: lowMembership, medium: mediumMembership, high: highMembership };
-};
-
-// Defuzzificação usando método do centroide simplificado
-const defuzzify = (membership: { low: number; medium: number; high: number }): number => {
-  const lowCenter = 25;
-  const mediumCenter = 50;
-  const highCenter = 75;
-  
-  const numerator = (membership.low * lowCenter) + (membership.medium * mediumCenter) + (membership.high * highCenter);
-  const denominator = membership.low + membership.medium + membership.high;
-  
-  if (denominator === 0) return 50;
-  return numerator / denominator;
-};
-
-// Interface para os dados do formulário
+// ================================================
+// Interface dos dados lidos do banco
+// ================================================
 interface FormData {
-  // Dados pessoais
-  personal_data: {
-    name: string;
-    education_level: string;
-  }[];
-  
-  // Dados da propriedade
+  personal_data: { education: string }[];
   property_data: {
     total_area: number;
     production_area: number;
     state: string;
     system_usage_time: number;
   }[];
-  
-  // Dados econômicos
   economic_data: {
     gross_income: number;
     production_cost: number;
@@ -139,72 +120,70 @@ interface FormData {
     financing_percentage: number;
     decision_maker_salary: number;
   }[];
-  
-  // Dados sociais (atualizado com novos campos do Python)
   social_data: {
     permanent_employees: number;
     temporary_employees: number;
-    highest_salary: number;
-    lowest_salary: number;
     oldest_family_member_age: number;
     youngest_family_member_age: number;
     operational_courses: number;
     technical_courses: number;
     specialization_courses: number;
-    has_technical_assistance: boolean;
     has_profit_sharing: boolean;
     has_health_plan: boolean;
   }[];
-  
-  // Dados ambientais
-  environmental_data: {
-    monthly_fuel_consumption: number;
-  }[];
+  environmental_data: { monthly_fuel_consumption: number }[];
 }
 
 // ================================================
-// CÁLCULO DO ÍNDICE ECONÔMICO
+// ÍNDICE ECONÔMICO
 // ================================================
 export function calcularIndiceEconomico(formData: FormData): number {
   try {
-    const economic = formData.economic_data[0];
-    const property = formData.property_data[0];
-    
-    if (!economic || !property) return 0;
-    
-    // FV = (Valor da Fazenda / Área Produtiva)^(1/Tempo no sistema)
-    const areaProductiva = property.production_area || 1;
-    const tempoSistema = property.system_usage_time || 1;
-    const FV = Math.pow((economic.property_value / areaProductiva), (1 / tempoSistema));
-    
-    // P = Lucro por hectare = (Receita - Custo) / Área Produtiva
-    const lucro = economic.gross_income - economic.production_cost;
-    const P = lucro / areaProductiva;
-    
-    // DL = Percentual de financiamento (já está em %)
-    const DL = economic.financing_percentage / 100;
-    
-    // WI = Salário do proprietário / Salário médio nacional (R$ 3.225)
-    const salarioProprietario = economic.decision_maker_salary || (lucro / 12);
-    const WI = salarioProprietario / 3225;
-    
-    // Aplicar fuzzy membership
-    const fvMembership = fuzzyMembership(normalize(FV, 0, 100), 25, 50, 75);
-    const pMembership = fuzzyMembership(normalize(P, 0, 5000), 25, 50, 75);
-    const dlMembership = fuzzyMembership(normalize(DL, 1, 0), 25, 50, 75); // Invertido: menos dívida é melhor
-    const wiMembership = fuzzyMembership(normalize(WI, 0, 10), 25, 50, 75);
-    
-    // Combinar os memberships (média ponderada)
-    const combinedMembership = {
-      low: (fvMembership.low + pMembership.low + dlMembership.low + wiMembership.low) / 4,
-      medium: (fvMembership.medium + pMembership.medium + dlMembership.medium + wiMembership.medium) / 4,
-      high: (fvMembership.high + pMembership.high + dlMembership.high + wiMembership.high) / 4
+    const e = formData.economic_data?.[0];
+    const p = formData.property_data?.[0];
+    if (!e || !p) return 0;
+
+    const prodArea = num(p.production_area);
+    const tempo = num(p.system_usage_time);
+
+    // FV = (Valor da fazenda / Área produtiva)^(1/Tempo no sistema)   universo 0..120
+    const FV = prodArea > 0 && tempo > 0
+      ? clamp(Math.pow(num(e.property_value) / prodArea, 1 / tempo), 0, 120)
+      : 0;
+    // P = Lucro por hectare   universo 0..7000
+    const P = prodArea > 0
+      ? clamp((num(e.gross_income) - num(e.production_cost)) / prodArea, 0, 7000)
+      : 0;
+    // DL = % da receita em financiamento   universo 0..1
+    const DL = clamp(num(e.financing_percentage) / 100, 0, 1);
+    // WI = Salário do tomador de decisão / salário médio (3225)   universo 0..11
+    const WI = clamp(num(e.decision_maker_salary) / 3225, 0, 11);
+
+    const fv = {
+      mb: trimf(FV, 0, 1, 2), b: trimf(FV, 1, 3, 10), m: trimf(FV, 8, 20, 40),
+      a: trimf(FV, 30, 60, 90), ma: trapmf(FV, 80, 100, 120, 120),
     };
-    
-    // Defuzzificar para obter o índice final
-    const indice = defuzzify(combinedMembership);
-    
-    return Math.min(100, Math.max(0, indice));
+    const wi = {
+      mb: trimf(WI, 0, 1, 2), b: trimf(WI, 1, 2, 4), m: trimf(WI, 3, 4, 6),
+      a: trimf(WI, 5, 7, 9), ma: trapmf(WI, 8, 9, 11, 11),
+    };
+    const pp = {
+      mb: trimf(P, 0, 100, 1000), b: trimf(P, 500, 1500, 2500), m: trimf(P, 2000, 3500, 5000),
+      a: trimf(P, 4500, 5500, 6500), ma: trapmf(P, 6000, 6700, 7000, 7000),
+    };
+    const dl = {
+      mb: trimf(DL, 0, 0, 0.1), b: trimf(DL, 0.05, 0.15, 0.3), m: trimf(DL, 0.2, 0.35, 0.5),
+      a: trimf(DL, 0.4, 0.6, 0.8), ma: trapmf(DL, 0.7, 0.85, 1, 1),
+    };
+
+    const out: OutStrength = { mb: 0, b: 0, m: 0, a: 0 };
+    fire(out, 'mb', dl.ma); fire(out, 'b', dl.a); fire(out, 'm', dl.m); fire(out, 'a', dl.b); fire(out, 'a', dl.mb);
+    fire(out, 'a', wi.ma); fire(out, 'a', wi.a); fire(out, 'm', wi.m); fire(out, 'b', wi.b); fire(out, 'mb', wi.mb);
+    fire(out, 'a', pp.ma); fire(out, 'a', pp.a); fire(out, 'm', pp.m); fire(out, 'b', pp.b); fire(out, 'mb', pp.mb);
+    fire(out, 'a', fv.ma); fire(out, 'a', fv.a); fire(out, 'm', fv.m); fire(out, 'b', fv.b); fire(out, 'mb', fv.mb);
+
+    const raw = defuzzCentroid(out);
+    return clamp((raw - 8.333333333333332) * 100 / (80.55555555555556 - 8.333333333333332), 0, 100);
   } catch (error) {
     console.error('Erro ao calcular índice econômico:', error);
     return 0;
@@ -212,95 +191,56 @@ export function calcularIndiceEconomico(formData: FormData): number {
 }
 
 // ================================================
-// CÁLCULO DO ÍNDICE SOCIAL
-// Baseado no Python: JA, TC, JQ, Anos de Estudo, Plano Saúde, Compartilha Lucros
+// ÍNDICE SOCIAL
 // ================================================
 export function calcularIndiceSocial(formData: FormData): number {
   try {
-    const social = formData.social_data[0];
-    const personal = formData.personal_data[0];
-    
-    if (!social || !personal) return 0;
-    
-    // Anos de estudo baseado no nível de educação
-    const educationYears: Record<string, number> = {
-      'sem-escolaridade': 0,
-      'fundamental-incompleto': 4,
-      'fundamental-completo': 8,
-      'medio-incompleto': 10,
-      'medio-completo': 12,
-      'tecnico-incompleto': 13,
-      'tecnico-completo': 14,
-      'superior-incompleto': 15,
-      'superior-completo': 16,
-      'pos-graduacao': 18
+    const s = formData.social_data?.[0];
+    const pers = formData.personal_data?.[0];
+    if (!s || !pers) return 0;
+
+    const anosEstudo = clamp(ANOS_ESTUDO[pers.education] ?? 8, 0, 20);
+    const iv = num(s.oldest_family_member_age);
+    const inn = num(s.youngest_family_member_age);
+    const JA = iv > 0 ? clamp(inn / iv, 0, 1) : 0;
+    const TC = clamp(
+      num(s.operational_courses) + 2 * num(s.technical_courses) + 3 * num(s.specialization_courses),
+      0, 20,
+    );
+    const temp = num(s.temporary_employees);
+    const JQ = clamp((num(s.permanent_employees) / (temp + 1)) / (temp + 1), 0, 20);
+    const planoSaude = s.has_health_plan ? 1 : 0;
+    const compartilhaLucros = s.has_profit_sharing ? 1 : 0;
+
+    const ae = {
+      mb: trimf(anosEstudo, 0, 0, 5), b: trimf(anosEstudo, 3, 5, 8), m: trimf(anosEstudo, 6, 9, 13),
+      a: trimf(anosEstudo, 10, 13, 16), ma: trapmf(anosEstudo, 13, 16, 20, 20),
     };
-    
-    const anosEstudo = educationYears[personal.education_level] || 8;
-    
-    // JA - Job Attractiveness (Python: idade_jovem / idade_velho)
-    // ATENÇÃO: No Python, JA BAIXO = índice ALTO (inverso!)
-    const idadeJovem = social.youngest_family_member_age || 25;
-    const idadeVelho = social.oldest_family_member_age || 60;
-    const JA = idadeJovem / Math.max(idadeVelho, 1);
-    
-    // TC - Total de Cursos (Python: P1 + 2*P2 + 3*P3)
-    const cursosOp = social.operational_courses || 0;
-    const cursosTec = social.technical_courses || 0;
-    const cursosEsp = social.specialization_courses || 0;
-    const TC = cursosOp + (2 * cursosTec) + (3 * cursosEsp);
-    
-    // JQ - Job Quality (Python: (perm/(temp+1))/(temp+1))
-    const permanentes = social.permanent_employees || 0;
-    const temporarios = social.temporary_employees || 0;
-    const JQ = (permanentes / (temporarios + 1)) / (temporarios + 1);
-    
-    // Plano de saúde e compartilhamento de lucros (0 ou 1)
-    const planoSaude = social.has_health_plan ? 1 : 0;
-    const compartilhaLucros = social.has_profit_sharing ? 1 : 0;
-    
-    // Aplicar fuzzy membership (conforme ranges do Python)
-    // Anos de estudo: 0-20
-    const estMembership = fuzzyMembership(anosEstudo, 5, 10, 16);
-    
-    // JA: 0-1 (INVERTIDO - JA baixo = bom para sustentabilidade social)
-    // No Python: JA muito_alto -> índice muito_baixo
-    const jaInvertido = 1 - JA; // Inverte para que baixo JA = alto membership
-    const jaMembership = fuzzyMembership(jaInvertido * 100, 25, 50, 75);
-    
-    // TC: 0-20
-    const tcMembership = fuzzyMembership(TC, 4, 10, 16);
-    
-    // JQ: 0-20 (normalizado)
-    const jqNorm = Math.min(JQ * 10, 20);
-    const jqMembership = fuzzyMembership(jqNorm, 4, 10, 16);
-    
-    // Combinar os memberships (média ponderada)
-    const combinedMembership = {
-      low: (estMembership.low + jaMembership.low + tcMembership.low + jqMembership.low) / 4,
-      medium: (estMembership.medium + jaMembership.medium + tcMembership.medium + jqMembership.medium) / 4,
-      high: (estMembership.high + jaMembership.high + tcMembership.high + jqMembership.high) / 4
+    const ja = {
+      mb: trimf(JA, 0, 0, 0.2), b: trimf(JA, 0.1, 0.25, 0.4), m: trimf(JA, 0.3, 0.45, 0.6),
+      a: trimf(JA, 0.5, 0.65, 0.8), ma: trapmf(JA, 0.7, 0.85, 1, 1),
     };
-    
-    // Adicionar bônus por benefícios (conforme regras do Python)
-    if (planoSaude) combinedMembership.high += 0.15;
-    if (compartilhaLucros) combinedMembership.high += 0.15;
-    
-    // Normalizar
-    const total = combinedMembership.low + combinedMembership.medium + combinedMembership.high;
-    if (total > 0) {
-      combinedMembership.low /= total;
-      combinedMembership.medium /= total;
-      combinedMembership.high /= total;
-    }
-    
-    // Defuzzificar
-    const indice = defuzzify(combinedMembership);
-    
-    // Normalizar saída conforme Python: (resultado-20.83)*100/(80.56-20.83)
-    const indiceNormalizado = ((indice - 20.83) * 100) / (80.56 - 20.83);
-    
-    return Math.min(100, Math.max(0, indiceNormalizado));
+    const tc = {
+      mb: trimf(TC, 0, 0, 4), b: trimf(TC, 2, 5, 8), m: trimf(TC, 8, 10, 12),
+      a: trimf(TC, 10, 12, 14), ma: trapmf(TC, 12, 16, 20, 20),
+    };
+    const jq = {
+      mb: trimf(JQ, 0, 0, 4), b: trimf(JQ, 2, 5, 8), m: trimf(JQ, 8, 10, 12),
+      a: trimf(JQ, 10, 12, 14), ma: trapmf(JQ, 12, 16, 20, 20),
+    };
+    const ps = { nao: trimf(planoSaude, 0, 0, 0.5), sim: trimf(planoSaude, 0.5, 1, 1) };
+    const cl = { nao: trimf(compartilhaLucros, 0, 0, 0.5), sim: trimf(compartilhaLucros, 0.5, 1, 1) };
+
+    const out: OutStrength = { mb: 0, b: 0, m: 0, a: 0 };
+    fire(out, 'mb', ja.ma); fire(out, 'b', ja.a); fire(out, 'm', ja.m); fire(out, 'a', ja.b); fire(out, 'a', ja.mb);
+    fire(out, 'a', ae.a); fire(out, 'm', ae.m); fire(out, 'b', ae.b); fire(out, 'mb', ae.mb); fire(out, 'a', ae.ma);
+    fire(out, 'a', cl.sim); fire(out, 'b', cl.nao);
+    fire(out, 'a', Math.max(jq.a, jq.ma)); fire(out, 'm', jq.m); fire(out, 'b', Math.max(jq.b, jq.mb));
+    fire(out, 'm', tc.m); fire(out, 'a', Math.max(tc.a, tc.ma)); fire(out, 'b', Math.max(tc.b, tc.mb));
+    fire(out, 'a', ps.sim); fire(out, 'b', ps.nao);
+
+    const raw = defuzzCentroid(out);
+    return clamp((raw - 20.83066751972702) * 100 / (80.55555555555556 - 20.83066751972702), 0, 100);
   } catch (error) {
     console.error('Erro ao calcular índice social:', error);
     return 0;
@@ -308,51 +248,66 @@ export function calcularIndiceSocial(formData: FormData): number {
 }
 
 // ================================================
-// CÁLCULO DO ÍNDICE AMBIENTAL
+// ÍNDICE AMBIENTAL
 // ================================================
 export function calcularIndiceAmbiental(formData: FormData): number {
   try {
-    const property = formData.property_data[0];
-    const environmental = formData.environmental_data[0];
-    
-    if (!property || !environmental) return 0;
-    
-    const estado = property.state || 'SP';
-    const areaTotal = property.total_area || 1;
-    const areaProducao = property.production_area || 1;
-    
-    // FO - Fração de área conservada vs regulamentação
-    const areaConservada = areaTotal - areaProducao;
-    const percentConservado = (areaConservada / areaTotal);
-    const regulamentacao = REGULAMENTACAO[estado] || 0.2;
-    const FO = percentConservado / regulamentacao;
-    
-    // Escoamento = (Chuva - Evapotranspiração) / Chuva
+    const p = formData.property_data?.[0];
+    const env = formData.environmental_data?.[0];
+    if (!p || !env) return 0;
+
+    const estado = (p.state || 'SP').toUpperCase();
+    const totalArea = num(p.total_area);
+    const prodArea = num(p.production_area);
+
+    // FO = %área conservada / regulamentação   universo 0..1
+    const reg = REGULAMENTACAO[estado] || 0.2;
+    const FO = totalArea > 0
+      ? clamp(((totalArea - prodArea) / totalArea) / reg, 0, 1)
+      : 0;
+    // Escoamento = (chuva - evapo)/chuva   universo -1..1
     const chuva = CHUVA[estado] || 1500;
     const evapo = EVAPO[estado] || 1500;
-    const escoamento = (chuva - evapo) / chuva;
-    
-    // Consumo de combustível por área (L/ha/ano)
-    const consumoMensal = environmental.monthly_fuel_consumption || 0;
-    const consumoAnual = consumoMensal * 12;
-    const consumoArea = consumoAnual / areaTotal;
-    
-    // Aplicar fuzzy membership
-    const foMembership = fuzzyMembership(normalize(FO, 0, 2), 25, 50, 75);
-    const escoMembership = fuzzyMembership(normalize(escoamento + 1, 0, 2), 25, 50, 75);
-    const consumoMembership = fuzzyMembership(normalize(40 - consumoArea, 0, 40), 25, 50, 75); // Invertido: menos consumo é melhor
-    
-    // Combinar os memberships
-    const combinedMembership = {
-      low: (foMembership.low + escoMembership.low + consumoMembership.low) / 3,
-      medium: (foMembership.medium + escoMembership.medium + consumoMembership.medium) / 3,
-      high: (foMembership.high + escoMembership.high + consumoMembership.high) / 3
+    const Escoamento = clamp((chuva - evapo) / chuva, -1, 1);
+    // consumo_area = combustível anual / área total   universo 0..40
+    const consumoArea = totalArea > 0
+      ? clamp((num(env.monthly_fuel_consumption) * 12) / totalArea, 0, 40)
+      : 0;
+
+    const fo = {
+      mb: trimf(FO, 0, 0, 0.1), b: trimf(FO, 0.05, 0.15, 0.3), m: trimf(FO, 0.2, 0.35, 0.5),
+      a: trimf(FO, 0.4, 0.6, 0.8), ma: trapmf(FO, 0.7, 0.85, 1, 1),
     };
-    
-    // Defuzzificar
-    const indice = defuzzify(combinedMembership);
-    
-    return Math.min(100, Math.max(0, indice));
+    const esc = {
+      ma: trimf(Escoamento, -1, -1, -0.2), a: trimf(Escoamento, -0.3, -0.1, 0.1),
+      m: trimf(Escoamento, 0, 0.2, 0.4), b: trimf(Escoamento, 0.3, 0.5, 0.7),
+      mb: trapmf(Escoamento, 0.6, 0.8, 1, 1),
+    };
+    const co = {
+      mb: trimf(consumoArea, 0, 0, 3), b: trimf(consumoArea, 1, 4, 8), m: trimf(consumoArea, 6, 10, 15),
+      a: trimf(consumoArea, 12, 18, 25), ma: trapmf(consumoArea, 20, 28, 40, 40),
+    };
+
+    const out: OutStrength = { mb: 0, b: 0, m: 0, a: 0 };
+    // Escoamento
+    fire(out, 'a', esc.m);
+    fire(out, 'm', Math.max(esc.b, esc.a));
+    fire(out, 'b', Math.max(esc.mb, esc.ma));
+    // FO  (no Python apontava p/ indice_economico por bug; aqui aponta p/ ambiental)
+    fire(out, 'b', fo.b);
+    fire(out, 'mb', fo.mb);
+    fire(out, 'a', fo.a);
+    fire(out, 'a', fo.ma);
+    fire(out, 'm', fo.m);
+    // consumo_area
+    fire(out, 'a', co.mb);
+    fire(out, 'a', co.b);
+    fire(out, 'm', co.m);
+    fire(out, 'b', co.a);
+    fire(out, 'mb', co.ma);
+
+    const raw = defuzzCentroid(out);
+    return clamp((raw - 20.83066751972702) * 100 / (80.55555555555556 - 20.83066751972702), 0, 100);
   } catch (error) {
     console.error('Erro ao calcular índice ambiental:', error);
     return 0;
@@ -360,57 +315,33 @@ export function calcularIndiceAmbiental(formData: FormData): number {
 }
 
 // ================================================
-// CÁLCULO DO ÍNDICE DE SUSTENTABILIDADE
+// ÍNDICE DE SUSTENTABILIDADE (combina os 3, 0..100)
 // ================================================
 export function calcularIndiceSustentabilidade(economico: number, social: number, ambiental: number): number {
   try {
-    // Aplicar fuzzy membership para cada índice
-    const econMembership = fuzzyMembership(economico, 25, 50, 75);
-    const socMembership = fuzzyMembership(social, 25, 50, 75);
-    const ambMembership = fuzzyMembership(ambiental, 25, 50, 75);
-    
-    // Regras fuzzy para sustentabilidade
-    let sustentabilidadeMembership = { low: 0, medium: 0, high: 0 };
-    
-    // Regra 1: Se qualquer índice é muito baixo, sustentabilidade é baixa
-    if (econMembership.low > 0.5 || socMembership.low > 0.5 || ambMembership.low > 0.5) {
-      sustentabilidadeMembership.low = Math.max(econMembership.low, socMembership.low, ambMembership.low);
-    }
-    
-    // Regra 2: Se pelo menos 2 índices são médios, sustentabilidade é média
-    const mediumCount = (econMembership.medium > 0.3 ? 1 : 0) + 
-                       (socMembership.medium > 0.3 ? 1 : 0) + 
-                       (ambMembership.medium > 0.3 ? 1 : 0);
-    if (mediumCount >= 2) {
-      sustentabilidadeMembership.medium = (econMembership.medium + socMembership.medium + ambMembership.medium) / 3;
-    }
-    
-    // Regra 3: Se pelo menos 2 índices são altos, sustentabilidade é alta
-    const highCount = (econMembership.high > 0.3 ? 1 : 0) + 
-                     (socMembership.high > 0.3 ? 1 : 0) + 
-                     (ambMembership.high > 0.3 ? 1 : 0);
-    if (highCount >= 2) {
-      sustentabilidadeMembership.high = (econMembership.high + socMembership.high + ambMembership.high) / 3;
-    }
-    
-    // Se nenhuma regra foi ativada, usar média simples
-    if (sustentabilidadeMembership.low === 0 && sustentabilidadeMembership.medium === 0 && sustentabilidadeMembership.high === 0) {
-      const mediaSimples = (economico + social + ambiental) / 3;
-      return Math.min(100, Math.max(0, mediaSimples));
-    }
-    
-    // Normalizar
-    const total = sustentabilidadeMembership.low + sustentabilidadeMembership.medium + sustentabilidadeMembership.high;
-    if (total > 0) {
-      sustentabilidadeMembership.low /= total;
-      sustentabilidadeMembership.medium /= total;
-      sustentabilidadeMembership.high /= total;
-    }
-    
-    // Defuzzificar
-    const indice = defuzzify(sustentabilidadeMembership);
-    
-    return Math.min(100, Math.max(0, indice));
+    const sets = (v: number) => ({
+      mb: trimf(v, 0, 0, 25), b: trimf(v, 0, 25, 50), m: trimf(v, 25, 50, 75), a: trapmf(v, 50, 75, 100, 100),
+    });
+    const ec = sets(clamp(economico, 0, 100));
+    const so = sets(clamp(social, 0, 100));
+    const am = sets(clamp(ambiental, 0, 100));
+
+    const out: OutStrength = { mb: 0, b: 0, m: 0, a: 0 };
+    // Regra 1: algum muito baixo -> muito baixo
+    fire(out, 'mb', Math.max(ec.mb, so.mb, am.mb));
+    // Regra 2: algum baixo -> baixo
+    fire(out, 'b', Math.max(ec.b, so.b, am.b));
+    // Regra 3: pelo menos dois médios -> médio
+    fire(out, 'm', Math.max(
+      Math.min(ec.m, so.m), Math.min(ec.m, am.m), Math.min(so.m, am.m),
+    ));
+    // Regra 4: pelo menos dois altos -> alto
+    fire(out, 'a', Math.max(
+      Math.min(ec.a, so.a), Math.min(ec.a, am.a), Math.min(so.a, am.a),
+    ));
+
+    const raw = defuzzCentroid(out);
+    return clamp((raw - 8.33) * 100 / (80.56 - 8.33), 0, 100);
   } catch (error) {
     console.error('Erro ao calcular índice de sustentabilidade:', error);
     return 0;
@@ -418,7 +349,7 @@ export function calcularIndiceSustentabilidade(economico: number, social: number
 }
 
 // ================================================
-// FUNÇÃO PRINCIPAL PARA CALCULAR TODOS OS ÍNDICES
+// FUNÇÃO PRINCIPAL — busca dados, calcula, persiste e retorna
 // ================================================
 export async function calcularIndices(formId: string): Promise<{
   economico: number;
@@ -427,7 +358,6 @@ export async function calcularIndices(formId: string): Promise<{
   sustentabilidade: number;
 }> {
   try {
-    // Buscar todos os dados do formulário
     const { data: formData, error } = await supabase
       .from('forms')
       .select(`
@@ -440,50 +370,44 @@ export async function calcularIndices(formId: string): Promise<{
       `)
       .eq('id', formId)
       .single();
-    
+
     if (error || !formData) {
       throw new Error('Erro ao buscar dados do formulário');
     }
-    
-    // Calcular cada índice
+
     const indiceEconomico = calcularIndiceEconomico(formData);
     const indiceSocial = calcularIndiceSocial(formData);
     const indiceAmbiental = calcularIndiceAmbiental(formData);
     const indiceSustentabilidade = calcularIndiceSustentabilidade(
       indiceEconomico,
       indiceSocial,
-      indiceAmbiental
+      indiceAmbiental,
     );
-    
-    // Salvar os índices no banco
+
+    // Persistir nas colunas canônicas (inteiras) lidas pelo dashboard/resultados
     const { error: updateError } = await supabase
       .from('forms')
       .update({
-        indice_economico: Math.round(indiceEconomico * 100) / 100,
-        indice_social: Math.round(indiceSocial * 100) / 100,
-        indice_ambiental: Math.round(indiceAmbiental * 100) / 100,
-        indice_sustentabilidade: Math.round(indiceSustentabilidade * 100) / 100,
-        updated_at: new Date().toISOString()
+        economic_index: Math.round(indiceEconomico),
+        social_index: Math.round(indiceSocial),
+        environmental_index: Math.round(indiceAmbiental),
+        sustainability_index: Math.round(indiceSustentabilidade),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', formId);
-    
+
     if (updateError) {
       console.error('Erro ao salvar índices:', updateError);
     }
-    
+
     return {
       economico: Math.round(indiceEconomico * 100) / 100,
       social: Math.round(indiceSocial * 100) / 100,
       ambiental: Math.round(indiceAmbiental * 100) / 100,
-      sustentabilidade: Math.round(indiceSustentabilidade * 100) / 100
+      sustentabilidade: Math.round(indiceSustentabilidade * 100) / 100,
     };
   } catch (error) {
     console.error('Erro ao calcular índices:', error);
-    return {
-      economico: 0,
-      social: 0,
-      ambiental: 0,
-      sustentabilidade: 0
-    };
+    return { economico: 0, social: 0, ambiental: 0, sustentabilidade: 0 };
   }
 }

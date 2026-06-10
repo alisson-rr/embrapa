@@ -15,7 +15,7 @@ def configurar_plots():
 #JA=IN/IV #Job atractiveness (Idade do membro mais jovem da família trabalhando na fazenda/idade do membro mais velho trabalhando na fazenda) 2
 #HP=int(input()) #Sim, ou não(1,0). Oferece plano de saúde aos funcionários 3 
 #PS=int(input()) #Sim, ou não(1,0).O fazendeiro oferece compartilhamento de lucros para os funcionários 4
-#TC = P1 + 2*P2 + 2*P3 numero de cursos operacionais+2*num de cursos tecnicos+3*número de cursos especializantes
+#TC = P1 + 2*P2 + 3*P3 numero de cursos operacionais+2*num de cursos tecnicos+3*número de cursos especializantes
 #JQ= (Número de funcionários permanentes/Número de funcionários temporários+1)/(Número de funcionários temporários+1)
 
 Anos_de_estudo= ctrl.Antecedent(np.arange(0,21,1),'Anos_de_estudo')
@@ -242,11 +242,11 @@ regras_ambientais=[]
 regras_ambientais.append(ctrl.Rule(Escoamento['medio'], indice_ambiental['alto']))
 regras_ambientais.append(ctrl.Rule(Escoamento['baixo'] | Escoamento['alto'], indice_ambiental['medio']))
 regras_ambientais.append(ctrl.Rule(Escoamento['muito_baixo'] | Escoamento['muito_alto'], indice_ambiental['baixo']))
-regras_ambientais.append(ctrl.Rule(FO['baixo'], indice_economico['baixo']))
-regras_ambientais.append(ctrl.Rule(FO['muito_baixo'], indice_economico['muito_baixo']))
-regras_ambientais.append(ctrl.Rule(FO['alto'], indice_economico['alto']))
-regras_ambientais.append(ctrl.Rule(FO['muito_alto'], indice_economico['alto']))
-regras_ambientais.append(ctrl.Rule(FO['medio'], indice_economico['medio']))
+regras_ambientais.append(ctrl.Rule(FO['baixo'], indice_ambiental['baixo']))
+regras_ambientais.append(ctrl.Rule(FO['muito_baixo'], indice_ambiental['muito_baixo']))
+regras_ambientais.append(ctrl.Rule(FO['alto'], indice_ambiental['alto']))
+regras_ambientais.append(ctrl.Rule(FO['muito_alto'], indice_ambiental['alto']))
+regras_ambientais.append(ctrl.Rule(FO['medio'], indice_ambiental['medio']))
 regras_ambientais.append(ctrl.Rule(consumo_area['muito_baixo'], indice_ambiental['alto']))
 regras_ambientais.append(ctrl.Rule(consumo_area['baixo'], indice_ambiental['alto']))
 regras_ambientais.append(ctrl.Rule(consumo_area['medio'], indice_ambiental['medio']))
@@ -362,7 +362,8 @@ def calcular_sustentabilidade(economico_val, social_val, ambiental_val):
 
 # FUNÇÃO PARA VISUALIZAR O CÁLCULO
 def visualizar_calculo(economico_val, social_val, ambiental_val):
-    resultado = (calcular_sustentabilidade(economico_val, social_val, ambiental_val)-8.33)*100/(80.56-8.33)
+    # calcular_sustentabilidade já retorna o valor normalizado (0-100)
+    resultado = calcular_sustentabilidade(economico_val, social_val, ambiental_val)
     if resultado is not None:
         print(f"\n=== CÁLCULO DE SUSTENTABILIDADE ===")
         print(f"Econômico: {economico_val}")

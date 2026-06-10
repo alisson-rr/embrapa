@@ -22,14 +22,14 @@ interface EconomicInfoFormProps {
 
 const EconomicInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: EconomicInfoFormProps) => {
   const [formData, setFormData] = useState<EconomicInfoFormData>({
-    grossIncome: initialData.grossIncome || "R$ 500.000",
-    financingPercentage: initialData.financingPercentage || "15%",
-    productionCost: initialData.productionCost || "R$ 150.000",
-    propertyValue: initialData.propertyValue || "R$ 2.000.000",
-    managementSystem: initialData.managementSystem || "nao",
+    grossIncome: initialData.grossIncome || "",
+    financingPercentage: initialData.financingPercentage || "",
+    productionCost: initialData.productionCost || "",
+    propertyValue: initialData.propertyValue || "",
+    managementSystem: initialData.managementSystem || "",
     managementSystemName: initialData.managementSystemName || "",
-    decisionMakerSalary: initialData.decisionMakerSalary || "R$ 8.000",
-    productCommercialization: initialData.productCommercialization || "Venda direta para cooperativa",
+    decisionMakerSalary: initialData.decisionMakerSalary || "",
+    productCommercialization: initialData.productCommercialization || "",
   });
 
   // Check initial validation

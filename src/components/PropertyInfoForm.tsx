@@ -31,6 +31,13 @@ interface PropertyInfoFormData {
   // Perguntas condicionais - Floresta
   forestSpecies: string;
   forestArea: string;
+  // Perfil do rebanho (sexo × faixa de idade) - Pecuária
+  maleUnder1?: string;
+  femaleUnder1?: string;
+  male1to2?: string;
+  female1to2?: string;
+  maleOver2?: string;
+  femaleOver2?: string;
   // Perguntas finais
   permanentProtectionArea: string;
   legalReserveArea: string;
@@ -44,23 +51,29 @@ interface PropertyInfoFormProps {
 
 const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: PropertyInfoFormProps) => {
   const [formData, setFormData] = useState<PropertyInfoFormData>({
-    totalArea: initialData.totalArea || "150,50",
-    productionArea: initialData.productionArea || "120,25",
-    productionSystem: initialData.productionSystem || "lavoura",
+    totalArea: initialData.totalArea || "",
+    productionArea: initialData.productionArea || "",
+    productionSystem: initialData.productionSystem || "",
     productionSystemDetail: initialData.productionSystemDetail || "",
-    systemUsageTime: initialData.systemUsageTime || "10",
-    activityTypes: initialData.activityTypes || ["lavoura"],
-    crops: initialData.crops || [{ name: "Soja", plantingMonth: "10", areaPercentage: "80" }],
-    useCoverCrop: initialData.useCoverCrop || "sim",
-    coverCropTypes: initialData.coverCropTypes || "Aveia, Nabo Forrageiro",
+    systemUsageTime: initialData.systemUsageTime || "",
+    activityTypes: initialData.activityTypes || [],
+    crops: initialData.crops || [],
+    useCoverCrop: initialData.useCoverCrop || "",
+    coverCropTypes: initialData.coverCropTypes || "",
     pastureTypes: initialData.pastureTypes || "",
     pastureSpecies: initialData.pastureSpecies || "",
     useSilage: initialData.useSilage || "",
     silageHectares: initialData.silageHectares || "",
     forestSpecies: initialData.forestSpecies || "",
     forestArea: initialData.forestArea || "",
-    permanentProtectionArea: initialData.permanentProtectionArea || "15,00",
-    legalReserveArea: initialData.legalReserveArea || "30,00",
+    maleUnder1: initialData.maleUnder1 || "",
+    femaleUnder1: initialData.femaleUnder1 || "",
+    male1to2: initialData.male1to2 || "",
+    female1to2: initialData.female1to2 || "",
+    maleOver2: initialData.maleOver2 || "",
+    femaleOver2: initialData.femaleOver2 || "",
+    permanentProtectionArea: initialData.permanentProtectionArea || "",
+    legalReserveArea: initialData.legalReserveArea || "",
   });
 
   // Função auxiliar para converter string com vírgula para número
@@ -530,6 +543,39 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
               />
             </div>
           )}
+
+          {/* Perfil do rebanho — quantidade por sexo e faixa de idade */}
+          <div className="space-y-4 pt-4 border-t border-gray-200">
+            <div>
+              <h5 className="text-sm font-semibold text-foreground">Perfil do Rebanho</h5>
+              <p className="text-xs text-gray-500">Quantidade de animais por sexo e faixa de idade</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {([
+                { field: "maleUnder1", label: "Machos < 1 ano (bezerros)" },
+                { field: "femaleUnder1", label: "Fêmeas < 1 ano (bezerras)" },
+                { field: "male1to2", label: "Machos 1–2 anos (garrotes)" },
+                { field: "female1to2", label: "Fêmeas 1–2 anos (novilhas)" },
+                { field: "maleOver2", label: "Machos > 2 anos (touros/bois)" },
+                { field: "femaleOver2", label: "Fêmeas > 2 anos (vacas)" },
+              ] as const).map((item) => (
+                <div key={item.field} className="space-y-2">
+                  <Label htmlFor={item.field} className="text-sm font-medium text-foreground">
+                    {item.label}
+                  </Label>
+                  <Input
+                    id={item.field}
+                    type="number"
+                    min="0"
+                    value={(formData[item.field] as string) ?? ""}
+                    onChange={(e) => handleInputChange(item.field, e.target.value)}
+                    placeholder="0"
+                    className="form-input"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

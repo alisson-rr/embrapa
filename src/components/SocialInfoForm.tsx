@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { formatForAPI } from "@/lib/decimalUtils";
-import { formatCurrencyInput, cleanCurrencyForAPI } from "@/lib/currencyUtils";
 
 interface SocialInfoFormData {
   permanentEmployees: string;
@@ -35,23 +34,23 @@ interface SocialInfoFormProps {
 
 const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: SocialInfoFormProps) => {
   const [formData, setFormData] = useState<SocialInfoFormData>({
-    permanentEmployees: initialData.permanentEmployees || "5",
-    highestEducationEmployee: initialData.highestEducationEmployee || "superior-completo",
-    highestSalary: initialData.highestSalary || "R$ 8.000,00",
-    lowestEducationEmployee: initialData.lowestEducationEmployee || "fundamental-completo",
-    lowestSalary: initialData.lowestSalary || "R$ 1.500,00",
-    temporaryEmployees: initialData.temporaryEmployees || "3",
-    outsourcedAverageSalary: initialData.outsourcedAverageSalary || "R$ 2.000,00",
+    permanentEmployees: initialData.permanentEmployees || "",
+    highestEducationEmployee: initialData.highestEducationEmployee || "",
+    highestSalary: initialData.highestSalary || "",
+    lowestEducationEmployee: initialData.lowestEducationEmployee || "",
+    lowestSalary: initialData.lowestSalary || "",
+    temporaryEmployees: initialData.temporaryEmployees || "",
+    outsourcedAverageSalary: initialData.outsourcedAverageSalary || "",
     // Novas perguntas sociais
-    oldestFamilyMemberAge: initialData.oldestFamilyMemberAge || "65",
-    youngestFamilyMemberAge: initialData.youngestFamilyMemberAge || "18",
-    operationalCourses: initialData.operationalCourses || "2",
-    technicalCourses: initialData.technicalCourses || "1",
-    specializationCourses: initialData.specializationCourses || "0",
-    hasTechnicalAssistance: initialData.hasTechnicalAssistance || "sim",
-    technicalAssistanceType: initialData.technicalAssistanceType || "Emater",
-    hasProfitSharing: initialData.hasProfitSharing || "nao",
-    hasHealthPlan: initialData.hasHealthPlan || "sim",
+    oldestFamilyMemberAge: initialData.oldestFamilyMemberAge || "",
+    youngestFamilyMemberAge: initialData.youngestFamilyMemberAge || "",
+    operationalCourses: initialData.operationalCourses || "",
+    technicalCourses: initialData.technicalCourses || "",
+    specializationCourses: initialData.specializationCourses || "",
+    hasTechnicalAssistance: initialData.hasTechnicalAssistance || "",
+    technicalAssistanceType: initialData.technicalAssistanceType || "",
+    hasProfitSharing: initialData.hasProfitSharing || "",
+    hasHealthPlan: initialData.hasHealthPlan || "",
   });
 
   // Check initial validation
@@ -83,8 +82,14 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
   };
 
   const handleCurrencyChange = (field: keyof SocialInfoFormData, value: string) => {
-    // Formata automaticamente enquanto digita
-    const formattedValue = formatCurrencyInput(value);
+    // Reais inteiros com separador de milhar (ex.: "R$ 5.000").
+    // Mantém só dígitos para não travar o valor em centavos.
+    const cleanValue = value.replace(/[^\d]/g, '');
+    if (!cleanValue) {
+      setFormData(prev => ({ ...prev, [field]: '' }));
+      return;
+    }
+    const formattedValue = 'R$ ' + parseInt(cleanValue, 10).toLocaleString('pt-BR');
     setFormData(prev => ({ ...prev, [field]: formattedValue }));
   };
 
@@ -96,14 +101,12 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Converte números para formato da API
+    // Empregados são inteiros; salários seguem formatados ("R$ 5.000")
+    // e são convertidos no save via parseCurrency (só dígitos).
     const apiData = {
       ...formData,
       permanentEmployees: formatForAPI(formData.permanentEmployees),
       temporaryEmployees: formatForAPI(formData.temporaryEmployees),
-      highestSalary: cleanCurrencyForAPI(formData.highestSalary),
-      lowestSalary: cleanCurrencyForAPI(formData.lowestSalary),
-      outsourcedAverageSalary: cleanCurrencyForAPI(formData.outsourcedAverageSalary),
     };
     onSubmit(apiData);
   };

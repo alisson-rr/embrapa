@@ -80,17 +80,17 @@ const stateOptions = [
 
 const GeneralInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: GeneralInfoFormProps) => {
   const [formData, setFormData] = useState<GeneralInfoFormData>({
-    propertyName: initialData.propertyName || "Fazenda Teste",
-    municipality: initialData.municipality || "Campo Grande",
-    state: initialData.state || "MS",
-    bioma: initialData.bioma || "cerrado",
-    geolocation: initialData.geolocation || "-20,4697, -54,6201",
-    birthPlace: initialData.birthPlace || "São Paulo, SP",
-    name: initialData.name || "João da Silva",
-    age: initialData.age || "45",
-    profession: initialData.profession || "Agricultor",
-    education: initialData.education || "medio-completo",
-    yearsInAgriculture: initialData.yearsInAgriculture || "20",
+    propertyName: initialData.propertyName || "",
+    municipality: initialData.municipality || "",
+    state: initialData.state || "",
+    bioma: initialData.bioma || "",
+    geolocation: initialData.geolocation || "",
+    birthPlace: initialData.birthPlace || "",
+    name: initialData.name || "",
+    age: initialData.age || "",
+    profession: initialData.profession || "",
+    education: initialData.education || "",
+    yearsInAgriculture: initialData.yearsInAgriculture || "",
   });
 
   // Validação

@@ -68,15 +68,15 @@ const EnvironmentalInfoForm = ({
   // Lista de culturas disponíveis (vindas do formulário de propriedade)
   const cropOptions = availableCrops.filter(crop => crop.name).map(crop => crop.name);
   const [formData, setFormData] = useState<EnvironmentalInfoFormData>({
-    organicMatterPercentage: initialData.organicMatterPercentage || "3,5%",
-    calciumQuantity: initialData.calciumQuantity || "2000 kg",
+    organicMatterPercentage: initialData.organicMatterPercentage || "",
+    calciumQuantity: initialData.calciumQuantity || "",
     fertilizers: initialData.fertilizers || [],
     herbicides: initialData.herbicides || [],
     fungicides: initialData.fungicides || [],
     insecticides: initialData.insecticides || [],
     otherPesticides: initialData.otherPesticides || [],
-    fuelConsumption: initialData.fuelConsumption || "500 litros/mês",
-    electricityExpense: initialData.electricityExpense || "R$ 1.500",
+    fuelConsumption: initialData.fuelConsumption || "",
+    electricityExpense: initialData.electricityExpense || "",
   });
 
 
@@ -97,12 +97,13 @@ const EnvironmentalInfoForm = ({
   };
 
   const handleCurrencyChange = (field: keyof EnvironmentalInfoFormData, value: string) => {
-    let cleanValue = value.replace(/[^\d.,]/g, '');
+    // Reais inteiros com separador de milhar (ex.: "R$ 1.000")
+    const cleanValue = value.replace(/[^\d]/g, '');
     if (!cleanValue) {
       setFormData(prev => ({ ...prev, [field]: '' }));
       return;
     }
-    const formattedValue = 'R$ ' + cleanValue;
+    const formattedValue = 'R$ ' + parseInt(cleanValue, 10).toLocaleString('pt-BR');
     setFormData(prev => ({ ...prev, [field]: formattedValue }));
   };
 

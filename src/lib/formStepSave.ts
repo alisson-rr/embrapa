@@ -13,6 +13,33 @@ const parseIntSafe = (value: string | number): number | null => {
   return isNaN(num) ? null : Math.floor(num);
 };
 
+// Converte moeda formatada ("R$ 2.000.000", "R$ 8.000") em número.
+// Os campos econômicos são sempre inteiros (sem centavos), então
+// removemos tudo que não é dígito para evitar bugs com separador de milhar.
+const parseCurrency = (value: string | number): number | null => {
+  if (value === '' || value === null || value === undefined) return null;
+  if (typeof value === 'number') return isNaN(value) ? null : value;
+  const digits = value.replace(/[^\d]/g, '');
+  return digits === '' ? null : parseInt(digits, 10);
+};
+
+// Converte um número escrito no formato brasileiro em number.
+// Lida com "3,5%", "2000 kg", "R$ 1.000,00", "1.234,56", "1500".
+// Regra: se tiver vírgula, ela é o separador decimal e os pontos são milhar;
+// se só tiver ponto, ele é tratado como decimal (parseFloat padrão).
+const parseNumberBR = (value: string | number): number | null => {
+  if (value === '' || value === null || value === undefined) return null;
+  if (typeof value === 'number') return isNaN(value) ? null : value;
+  let s = value.replace(/[^\d.,-]/g, ''); // mantém dígitos, ponto, vírgula, sinal
+  if (s === '') return null;
+  if (s.includes(',')) {
+    // vírgula = decimal → remove pontos de milhar e troca vírgula por ponto
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+};
+
 // ========================================
 // ETAPA 1: INFORMAÇÕES GERAIS (Nova estrutura - Seções 1 e 2)
 // ========================================
@@ -78,7 +105,7 @@ export async function saveGeneralInfo(data: any, userId?: string) {
         .update({
           name: data.name,
           age: parseIntSafe(data.age),
-          profession: data.profession,
+          occupation: data.profession,
           education: data.education,
           years_in_agriculture: parseIntSafe(data.yearsInAgriculture)
         })
@@ -94,7 +121,7 @@ export async function saveGeneralInfo(data: any, userId?: string) {
           form_id: formId,
           name: data.name,
           age: parseIntSafe(data.age),
-          profession: data.profession,
+          occupation: data.profession,
           education: data.education,
           years_in_agriculture: parseIntSafe(data.yearsInAgriculture)
         });
@@ -117,6 +144,7 @@ export async function saveGeneralInfo(data: any, userId?: string) {
         .update({
           property_name: data.propertyName,
           municipality: data.municipality,
+          state: data.state || null,
           bioma: data.bioma || null
         })
         .eq('form_id', formId);
@@ -128,6 +156,7 @@ export async function saveGeneralInfo(data: any, userId?: string) {
           form_id: formId,
           property_name: data.propertyName,
           municipality: data.municipality,
+          state: data.state || null,
           bioma: data.bioma || null
         });
     }
@@ -182,7 +211,7 @@ export async function savePersonalData(data: any, userId?: string) {
         .update({
           name: data.name,
           age: parseIntSafe(data.age),
-          profession: data.profession,
+          occupation: data.profession,
           education: data.education,
           years_in_agriculture: parseIntSafe(data.yearsInAgriculture)
         })
@@ -198,7 +227,7 @@ export async function savePersonalData(data: any, userId?: string) {
           form_id: formId,
           name: data.name,
           age: parseIntSafe(data.age),
-          profession: data.profession,
+          occupation: data.profession,
           education: data.education,
           years_in_agriculture: parseIntSafe(data.yearsInAgriculture)
         });
@@ -314,6 +343,11 @@ export async function savePropertyData(data: any) {
       await saveForestData(data, formId);
     }
 
+    // Salvar perfil do rebanho (sexo × idade) se a atividade incluir pecuária
+    if (Array.isArray(data.activityTypes) && data.activityTypes.includes('pecuaria')) {
+      await saveLivestockCategorization(data, formId);
+    }
+
     return { success: true, formId };
   } catch (error: any) {
     console.error('Erro ao salvar dados da propriedade:', error);
@@ -378,7 +412,31 @@ async function saveForestData(data: any, formId: string) {
   }
 }
 
-// Função auxiliar para salvar dados do rebanho
+// Salva o perfil do rebanho (sexo × faixa de idade) em livestock_categorization.
+// Um registro por formulário (chaveado por form_id).
+async function saveLivestockCategorization(data: any, formId: string) {
+  try {
+    const record = {
+      form_id: formId,
+      male_under_1: parseIntSafe(data.maleUnder1) || 0,
+      female_under_1: parseIntSafe(data.femaleUnder1) || 0,
+      male_1_2: parseIntSafe(data.male1to2) || 0,
+      female_1_2: parseIntSafe(data.female1to2) || 0,
+      male_over_2: parseIntSafe(data.maleOver2) || 0,
+      female_over_2: parseIntSafe(data.femaleOver2) || 0,
+    };
+
+    // Substitui o registro anterior (1 por formulário)
+    await supabase.from('livestock_categorization').delete().eq('form_id', formId);
+    const { error } = await supabase.from('livestock_categorization').insert(record);
+    if (error) throw error;
+    console.log('Perfil do rebanho salvo');
+  } catch (error) {
+    console.error('Erro ao salvar perfil do rebanho:', error);
+  }
+}
+
+// (LEGADO — não utilizado) Estrutura antiga de rebanho, mantida por referência.
 async function saveLivestockData(data: any, propertyDataId: string) {
   try {
     // Verificar se já existe
@@ -464,13 +522,13 @@ export async function saveEconomicData(data: any) {
       .single();
 
     const economicRecord = {
-      gross_income: parseNumber(data.grossIncome),
+      gross_income: parseCurrency(data.grossIncome),
       financing_percentage: parseFloat(data.financingPercentage?.replace('%', '').replace(',', '.')) || 0,
-      production_cost: parseNumber(data.productionCost),
-      property_value: parseNumber(data.propertyValue),
+      production_cost: parseCurrency(data.productionCost),
+      property_value: parseCurrency(data.propertyValue),
       management_system: data.managementSystem,
       management_system_name: data.managementSystem === 'sim' ? data.managementSystemName : null,
-      decision_maker_salary: parseNumber(data.decisionMakerSalary),
+      decision_maker_salary: parseCurrency(data.decisionMakerSalary),
       product_commercialization: data.productCommercialization
     };
 
@@ -523,11 +581,11 @@ export async function saveSocialData(data: any) {
     const socialRecord = {
       permanent_employees: parseIntSafe(data.permanentEmployees),
       highest_education_employee: data.highestEducationEmployee,
-      highest_salary: parseNumber(data.highestSalary),
+      highest_salary: parseCurrency(data.highestSalary),
       lowest_education_employee: data.lowestEducationEmployee,
-      lowest_salary: parseNumber(data.lowestSalary),
+      lowest_salary: parseCurrency(data.lowestSalary),
       temporary_employees: parseIntSafe(data.temporaryEmployees),
-      outsourced_average_salary: parseNumber(data.outsourcedAverageSalary),
+      outsourced_average_salary: parseCurrency(data.outsourcedAverageSalary),
       // Novos campos sociais
       oldest_family_member_age: parseIntSafe(data.oldestFamilyMemberAge),
       youngest_family_member_age: parseIntSafe(data.youngestFamilyMemberAge),
@@ -587,10 +645,12 @@ export async function saveEnvironmentalData(data: any) {
       .single();
 
     const environmentalRecord = {
-      organic_matter_percentage: parseNumber(data.organicMatterPercentage),
-      calcium_quantity: parseNumber(data.calciumQuantity),
-      monthly_fuel_consumption: parseNumber(data.fuelConsumption),
-      monthly_electricity_expense: parseNumber(data.electricityExpense)
+      // % de matéria orgânica: coluna numeric(5,2) → máx 999,99 (é um percentual)
+      organic_matter_percentage: parseNumberBR(data.organicMatterPercentage),
+      calcium_quantity: parseNumberBR(data.calciumQuantity),
+      monthly_fuel_consumption: parseNumberBR(data.fuelConsumption),
+      // Despesa de energia vem como "R$ 1.000,00" → guardamos em reais inteiros
+      monthly_electricity_expense: parseCurrency(data.electricityExpense)
     };
 
     if (existingData) {
@@ -650,14 +710,10 @@ export async function saveEnvironmentalData(data: any) {
       console.error('Erro ao atualizar status do formulário:', updateError);
     }
 
-    // Tentar calcular índices de sustentabilidade
-    try {
-      const { data: indices } = await supabase
-        .rpc('calculate_sustainability_indices', { form_id: formId });
-      console.log('Índices calculados:', indices);
-    } catch (rpcError) {
-      console.log('Função de cálculo não encontrada ou erro:', rpcError);
-    }
+    // Os índices de sustentabilidade são calculados pelo motor fuzzy
+    // (calcularIndices em src/lib/fuzzyCalculations.ts), chamado pela
+    // EnvironmentalInfoPage logo após este save. Não usamos mais a RPC
+    // crua aqui — ela sobrescrevia o status para 'processed' e os índices.
 
     return { success: true, formId };
   } catch (error: any) {
