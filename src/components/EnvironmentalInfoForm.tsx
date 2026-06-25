@@ -143,7 +143,8 @@ const EnvironmentalInfoForm = ({
 
   const handleHerbicideChange = (index: number, field: keyof HerbicideData, value: string) => {
     const newHerbicides = [...formData.herbicides];
-    newHerbicides[index] = { ...newHerbicides[index], [field]: value };
+    const cleanValue = field === 'applicationsQuantity' ? value.replace(/-/g, '') : value;
+    newHerbicides[index] = { ...newHerbicides[index], [field]: cleanValue };
     setFormData(prev => ({ ...prev, herbicides: newHerbicides }));
   };
 
@@ -163,7 +164,8 @@ const EnvironmentalInfoForm = ({
 
   const handleFungicideChange = (index: number, field: keyof FungicideData, value: string) => {
     const newFungicides = [...formData.fungicides];
-    newFungicides[index] = { ...newFungicides[index], [field]: value };
+    const cleanValue = field === 'applications' ? value.replace(/-/g, '') : value;
+    newFungicides[index] = { ...newFungicides[index], [field]: cleanValue };
     setFormData(prev => ({ ...prev, fungicides: newFungicides }));
   };
 
@@ -183,7 +185,8 @@ const EnvironmentalInfoForm = ({
 
   const handleInsecticideChange = (index: number, field: keyof InsecticideData, value: string) => {
     const newInsecticides = [...formData.insecticides];
-    newInsecticides[index] = { ...newInsecticides[index], [field]: value };
+    const cleanValue = field === 'applications' ? value.replace(/-/g, '') : value;
+    newInsecticides[index] = { ...newInsecticides[index], [field]: cleanValue };
     setFormData(prev => ({ ...prev, insecticides: newInsecticides }));
   };
 
@@ -203,12 +206,19 @@ const EnvironmentalInfoForm = ({
 
   const handleOtherPesticideChange = (index: number, field: keyof OtherPesticideData, value: string) => {
     const newOtherPesticides = [...formData.otherPesticides];
-    newOtherPesticides[index] = { ...newOtherPesticides[index], [field]: value };
+    const cleanValue = field === 'applications' ? value.replace(/-/g, '') : value;
+    newOtherPesticides[index] = { ...newOtherPesticides[index], [field]: cleanValue };
     setFormData(prev => ({ ...prev, otherPesticides: newOtherPesticides }));
   };
 
   const handleNumberKeyPress = (e: React.KeyboardEvent) => {
     if (!/[0-9.,]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
+      e.preventDefault();
+    }
+  };
+
+  const handlePesticideKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === '-') {
       e.preventDefault();
     }
   };
@@ -389,6 +399,7 @@ const EnvironmentalInfoForm = ({
                 placeholder="Nº aplicações e dose por hectare (L/ha ou kg/ha)"
                 value={herbicide.applicationsQuantity}
                 onChange={(e) => handleHerbicideChange(index, "applicationsQuantity", e.target.value)}
+                onKeyPress={handlePesticideKeyPress}
                 className="form-input text-sm"
               />
             </div>
@@ -455,6 +466,7 @@ const EnvironmentalInfoForm = ({
                 placeholder="Nº aplicações e dose por hectare (L/ha ou kg/ha)"
                 value={fungicide.applications}
                 onChange={(e) => handleFungicideChange(index, "applications", e.target.value)}
+                onKeyPress={handlePesticideKeyPress}
                 className="form-input text-sm"
               />
             </div>
@@ -521,6 +533,7 @@ const EnvironmentalInfoForm = ({
                 placeholder="Nº aplicações e dose por hectare (L/ha ou kg/ha)"
                 value={insecticide.applications}
                 onChange={(e) => handleInsecticideChange(index, "applications", e.target.value)}
+                onKeyPress={handlePesticideKeyPress}
                 className="form-input text-sm"
               />
             </div>
@@ -587,6 +600,7 @@ const EnvironmentalInfoForm = ({
                 placeholder="Nº aplicações e dose por hectare (L/ha ou kg/ha)"
                 value={other.applications}
                 onChange={(e) => handleOtherPesticideChange(index, "applications", e.target.value)}
+                onKeyPress={handlePesticideKeyPress}
                 className="form-input text-sm"
               />
             </div>
@@ -597,12 +611,12 @@ const EnvironmentalInfoForm = ({
       {/* Pergunta 5: Combustível */}
       <div className="space-y-2">
         <Label htmlFor="fuelConsumption" className="text-base font-medium text-foreground">
-          Qual a quantidade de combustível utilizada (mensal ou anual)?
+          Qual a quantidade de combustível utilizada no ano safra? (L/ano)
         </Label>
         <Input
           id="fuelConsumption"
           type="text"
-          placeholder="Ex.: 1000 litros/mês"
+          placeholder="Ex.: 12000 litros"
           value={formData.fuelConsumption}
           onChange={(e) => handleInputChange("fuelConsumption", e.target.value)}
           onKeyPress={handleNumberKeyPress}
@@ -614,12 +628,12 @@ const EnvironmentalInfoForm = ({
       {/* Pergunta 6: Energia elétrica */}
       <div className="space-y-2">
         <Label htmlFor="electricityExpense" className="text-base font-medium text-foreground">
-          Qual o valor da despesa com energia elétrica (mensal ou anual)?
+          Qual o valor da despesa com energia elétrica no ano safra? (R$/ano)
         </Label>
         <Input
           id="electricityExpense"
           type="text"
-          placeholder="Ex.: R$ 1.000,00"
+          placeholder="Ex.: R$ 12.000,00"
           value={formData.electricityExpense}
           onChange={(e) => handleCurrencyChange("electricityExpense", e.target.value)}
           onKeyPress={handleNumberKeyPress}

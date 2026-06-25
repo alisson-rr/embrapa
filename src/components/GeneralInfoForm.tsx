@@ -120,6 +120,13 @@ const GeneralInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Gen
     onSubmit(formData);
   };
 
+  const handleGeolocationChange = (value: string) => {
+    const regex = /^[0-9.,\-+\s;°'"NSEWnsew]*$/;
+    if (value === '' || regex.test(value)) {
+      handleInputChange("geolocation", value);
+    }
+  };
+
   const isFormValid = 
     formData.propertyName &&
     formData.municipality &&
@@ -222,9 +229,9 @@ const GeneralInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Gen
           <Input
             id="geolocation"
             type="text"
-            placeholder="Ex: -15.8267, -47.9218"
+            placeholder="Ex: -15.8267, -47.9218 (Latitude, Longitude)"
             value={formData.geolocation}
-            onChange={(e) => handleInputChange("geolocation", e.target.value)}
+            onChange={(e) => handleGeolocationChange(e.target.value)}
             className="form-input"
             required
           />
@@ -267,7 +274,7 @@ const GeneralInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Gen
             type="number"
             placeholder="Digite a sua idade"
             value={formData.age}
-            onChange={(e) => handleInputChange("age", e.target.value)}
+            onChange={(e) => handleInputChange("age", e.target.value.replace(/[^\d]/g, ''))}
             onKeyPress={(e) => {
               if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
                 e.preventDefault();
@@ -345,7 +352,7 @@ const GeneralInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Gen
             type="number"
             placeholder="Digite"
             value={formData.yearsInAgriculture}
-            onChange={(e) => handleInputChange("yearsInAgriculture", e.target.value)}
+            onChange={(e) => handleInputChange("yearsInAgriculture", e.target.value.replace(/[^\d]/g, ''))}
             onKeyPress={(e) => {
               if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
                 e.preventDefault();

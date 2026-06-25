@@ -90,14 +90,28 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
   const sumAreas = productionArea + appArea + reserveArea;
   const isAreaValid = totalArea === 0 || sumAreas <= totalArea;
 
+  // Validação das culturas: a área de cada cultura não pode exceder a área de produção
+  const invalidCrops = formData.crops.filter(crop => {
+    const cropArea = parseArea(crop.areaPercentage);
+    return cropArea > productionArea;
+  });
+  const isCropsAreaValid = invalidCrops.length === 0;
+
   // Validação inteligente - valida apenas campos visíveis/obrigatórios
   useEffect(() => {
-    // 1. Validar 4 perguntas básicas (sempre obrigatórias)
+    // 1. Validar 4 perguntas básicas (sempre obrigatórias) e áreas de preservação
     const basicQuestionsValid = !!(
       formData.totalArea &&
       formData.productionArea &&
       formData.productionSystem &&
       formData.systemUsageTime &&
+      formData.permanentProtectionArea &&
+      formData.legalReserveArea &&
+      parseArea(formData.totalArea) > 0 &&
+      parseArea(formData.productionArea) > 0 &&
+      parseArea(formData.systemUsageTime) >= 0 &&
+      parseArea(formData.permanentProtectionArea) >= 0 &&
+      parseArea(formData.legalReserveArea) >= 0 &&
       // Se for Pecuária ou ILPF, precisa ter detalhe (lavoura e floresta não precisam)
       (formData.productionSystem === 'lavoura' || formData.productionSystem === 'floresta' || formData.productionSystemDetail)
     );
@@ -108,12 +122,17 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
     // 3. Validar campos condicionais APENAS dos cards selecionados
     let conditionalFieldsValid = true;
 
-    // Se Lavoura foi selecionada, validar que tem pelo menos 1 cultura OU marcou que não usa cultura de cobertura
+    // Se Lavoura foi selecionada, validar que tem pelo menos 1 cultura e todas estão preenchidas corretamente
     if (formData.activityTypes.includes("lavoura")) {
-      const hasAtLeastOneCrop = formData.crops.length > 0 && 
-        formData.crops.some(crop => crop.name && crop.plantingMonth && crop.areaPercentage);
+      const hasCrops = formData.crops.length > 0;
+      const allCropsValid = formData.crops.every(crop => 
+        crop.name.trim() !== "" && 
+        crop.plantingMonth.trim() !== "" && 
+        crop.areaPercentage.trim() !== "" &&
+        parseArea(crop.areaPercentage) > 0
+      );
       const coverCropAnswered = formData.useCoverCrop !== "";
-      conditionalFieldsValid = conditionalFieldsValid && (hasAtLeastOneCrop || coverCropAnswered);
+      conditionalFieldsValid = conditionalFieldsValid && hasCrops && allCropsValid && coverCropAnswered;
     }
 
     // Se Pecuária foi selecionada, validar que tem tipo de pastagem
@@ -133,20 +152,32 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
       conditionalFieldsValid = true;
     }
 
-    // Validação final: perguntas básicas + pelo menos 1 card + campos condicionais + áreas válidas
-    const isValid = basicQuestionsValid && hasActivitySelected && conditionalFieldsValid && isAreaValid;
+    // Validação final: perguntas básicas + pelo menos 1 card + campos condicionais + áreas válidas + culturas válidas
+    const isValid = basicQuestionsValid && hasActivitySelected && conditionalFieldsValid && isAreaValid && isCropsAreaValid;
     
     onValidationChange?.(isValid);
-  }, [formData, onValidationChange, isAreaValid]);
+  }, [formData, onValidationChange, isAreaValid, isCropsAreaValid, productionArea]);
 
   const handleInputChange = (field: keyof PropertyInfoFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleAreaChange = (field: keyof PropertyInfoFormData, value: string) => {
-    const regex = /^\d*\.?\d{0,2}$/;
+    const regex = /^\d*[.,]?\d{0,2}$/;
     if (value === '' || regex.test(value)) {
       setFormData(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const handleNumberKeyPress = (e: React.KeyboardEvent) => {
+    if (!/[0-9.,]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
+      e.preventDefault();
+    }
+  };
+
+  const handleIntegerKeyPress = (e: React.KeyboardEvent) => {
+    if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
+      e.preventDefault();
     }
   };
 
@@ -234,6 +265,7 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
             type="text"
             value={formData.totalArea}
             onChange={(e) => handleAreaChange("totalArea", e.target.value)}
+            onKeyPress={handleNumberKeyPress}
             placeholder="Ex: 100,50"
             className="form-input"
             required
@@ -250,6 +282,7 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
             type="text"
             value={formData.productionArea}
             onChange={(e) => handleAreaChange("productionArea", e.target.value)}
+            onKeyPress={handleNumberKeyPress}
             placeholder="Ex: 80,25"
             className="form-input"
             required
@@ -356,7 +389,8 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
             id="systemUsageTime"
             type="number"
             value={formData.systemUsageTime}
-            onChange={(e) => handleInputChange("systemUsageTime", e.target.value)}
+            onChange={(e) => handleInputChange("systemUsageTime", e.target.value.replace(/[^\d]/g, ''))}
+            onKeyPress={handleIntegerKeyPress}
             placeholder="Ex: 5"
             className="form-input"
             min="0"
@@ -433,12 +467,16 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
                 <div>
                   <Label className="text-sm">Mês de plantio</Label>
                   <Input
-                    type="number"
+                    type="text"
                     value={crop.plantingMonth}
-                    onChange={(e) => updateCrop(index, 'plantingMonth', e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^\d]/g, '');
+                      if (val === '' || (parseInt(val, 10) >= 1 && parseInt(val, 10) <= 12)) {
+                        updateCrop(index, 'plantingMonth', val);
+                      }
+                    }}
+                    onKeyPress={handleIntegerKeyPress}
                     placeholder="Ex: 10"
-                    min="1"
-                    max="12"
                     className="mt-1"
                   />
                 </div>
@@ -446,7 +484,14 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
                   <Label className="text-sm">Área (ha)</Label>
                   <Input
                     value={crop.areaPercentage}
-                    onChange={(e) => updateCrop(index, 'areaPercentage', e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const regex = /^\d*[.,]?\d{0,2}$/;
+                      if (val === '' || regex.test(val)) {
+                        updateCrop(index, 'areaPercentage', val);
+                      }
+                    }}
+                    onKeyPress={handleNumberKeyPress}
                     placeholder="Ex: 50,00"
                     className="mt-1"
                   />
@@ -464,6 +509,13 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
                 </div>
               </div>
             ))}
+
+            {/* Aviso de validação de área de culturas */}
+            {!isCropsAreaValid && (
+              <div className="p-3 bg-red-100 border border-red-400 rounded-lg text-red-700 text-sm mt-4">
+                <strong>⚠️ Atenção:</strong> A área de cada cultura não pode exceder a área de produção da propriedade ({productionArea.toFixed(2).replace('.', ',')} ha).
+              </div>
+            )}
           </div>
 
           {/* Cultura de cobertura */}
@@ -538,6 +590,7 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
                 type="text"
                 value={formData.silageHectares}
                 onChange={(e) => handleAreaChange("silageHectares", e.target.value)}
+                onKeyPress={handleNumberKeyPress}
                 placeholder="Ex: 10,50"
                 className="form-input"
               />
@@ -568,7 +621,8 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
                     type="number"
                     min="0"
                     value={(formData[item.field] as string) ?? ""}
-                    onChange={(e) => handleInputChange(item.field, e.target.value)}
+                    onChange={(e) => handleInputChange(item.field, e.target.value.replace(/[^\d]/g, ''))}
+                    onKeyPress={handleIntegerKeyPress}
                     placeholder="0"
                     className="form-input"
                   />
@@ -602,6 +656,7 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
               type="text"
               value={formData.forestArea}
               onChange={(e) => handleAreaChange("forestArea", e.target.value)}
+              onKeyPress={handleNumberKeyPress}
               placeholder="Ex: 15,00"
               className="form-input"
             />
@@ -626,14 +681,16 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="permanentProtectionArea">Qual é o tamanho da Área de Proteção Permanente? (ha)</Label>
+            <Label htmlFor="permanentProtectionArea">Qual é o tamanho da Área de Preservação Permanente? (ha)</Label>
             <Input
               id="permanentProtectionArea"
               type="text"
               value={formData.permanentProtectionArea}
               onChange={(e) => handleAreaChange("permanentProtectionArea", e.target.value)}
+              onKeyPress={handleNumberKeyPress}
               placeholder="Ex: 90,75"
               className="form-input"
+              required
             />
           </div>
 
@@ -644,8 +701,10 @@ const PropertyInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Pr
               type="text"
               value={formData.legalReserveArea}
               onChange={(e) => handleAreaChange("legalReserveArea", e.target.value)}
+              onKeyPress={handleNumberKeyPress}
               placeholder="Ex: 20,00"
               className="form-input"
+              required
             />
           </div>
         </div>

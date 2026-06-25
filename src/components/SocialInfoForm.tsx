@@ -99,6 +99,12 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
     }
   };
 
+  const handleIntegerKeyPress = (e: React.KeyboardEvent) => {
+    if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
+      e.preventDefault();
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Empregados são inteiros; salários seguem formatados ("R$ 5.000")
@@ -136,9 +142,10 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
           type="number"
           placeholder="Ex.: 10"
           value={formData.permanentEmployees}
-          onChange={(e) => handleInputChange("permanentEmployees", e.target.value)}
-          onKeyPress={handleNumberKeyPress}
+          onChange={(e) => handleInputChange("permanentEmployees", e.target.value.replace(/[^\d]/g, ''))}
+          onKeyPress={handleIntegerKeyPress}
           className="form-input"
+          min="0"
           required
         />
       </div>
@@ -233,9 +240,10 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
           type="number"
           placeholder="Ex.: 5"
           value={formData.temporaryEmployees}
-          onChange={(e) => handleInputChange("temporaryEmployees", e.target.value)}
-          onKeyPress={handleNumberKeyPress}
+          onChange={(e) => handleInputChange("temporaryEmployees", e.target.value.replace(/[^\d]/g, ''))}
+          onKeyPress={handleIntegerKeyPress}
           className="form-input"
+          min="0"
           required
         />
       </div>
@@ -273,8 +281,8 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
             type="number"
             placeholder="Ex.: 65"
             value={formData.oldestFamilyMemberAge}
-            onChange={(e) => handleInputChange("oldestFamilyMemberAge", e.target.value)}
-            onKeyPress={handleNumberKeyPress}
+            onChange={(e) => handleInputChange("oldestFamilyMemberAge", e.target.value.replace(/[^\d]/g, ''))}
+            onKeyPress={handleIntegerKeyPress}
             className="form-input"
             min="1"
             max="120"
@@ -292,8 +300,8 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
             type="number"
             placeholder="Ex.: 18"
             value={formData.youngestFamilyMemberAge}
-            onChange={(e) => handleInputChange("youngestFamilyMemberAge", e.target.value)}
-            onKeyPress={handleNumberKeyPress}
+            onChange={(e) => handleInputChange("youngestFamilyMemberAge", e.target.value.replace(/[^\d]/g, ''))}
+            onKeyPress={handleIntegerKeyPress}
             className="form-input"
             min="1"
             max="120"
@@ -321,8 +329,8 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
               type="number"
               placeholder="0"
               value={formData.operationalCourses}
-              onChange={(e) => handleInputChange("operationalCourses", e.target.value)}
-              onKeyPress={handleNumberKeyPress}
+              onChange={(e) => handleInputChange("operationalCourses", e.target.value.replace(/[^\d]/g, ''))}
+              onKeyPress={handleIntegerKeyPress}
               className="form-input"
               min="0"
             />
@@ -339,8 +347,8 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
               type="number"
               placeholder="0"
               value={formData.technicalCourses}
-              onChange={(e) => handleInputChange("technicalCourses", e.target.value)}
-              onKeyPress={handleNumberKeyPress}
+              onChange={(e) => handleInputChange("technicalCourses", e.target.value.replace(/[^\d]/g, ''))}
+              onKeyPress={handleIntegerKeyPress}
               className="form-input"
               min="0"
             />
@@ -357,8 +365,8 @@ const SocialInfoForm = ({ onSubmit, initialData = {}, onValidationChange }: Soci
               type="number"
               placeholder="0"
               value={formData.specializationCourses}
-              onChange={(e) => handleInputChange("specializationCourses", e.target.value)}
-              onKeyPress={handleNumberKeyPress}
+              onChange={(e) => handleInputChange("specializationCourses", e.target.value.replace(/[^\d]/g, ''))}
+              onKeyPress={handleIntegerKeyPress}
               className="form-input"
               min="0"
             />

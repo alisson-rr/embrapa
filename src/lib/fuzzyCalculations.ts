@@ -271,7 +271,7 @@ export function calcularIndiceAmbiental(formData: FormData): number {
     const Escoamento = clamp((chuva - evapo) / chuva, -1, 1);
     // consumo_area = combustível anual / área total   universo 0..40
     const consumoArea = totalArea > 0
-      ? clamp((num(env.monthly_fuel_consumption) * 12) / totalArea, 0, 40)
+      ? clamp(num(env.monthly_fuel_consumption) / totalArea, 0, 40)
       : 0;
 
     const fo = {

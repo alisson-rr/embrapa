@@ -362,7 +362,7 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#D92D20] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    Consumo mensal de combustível: {formData?.environmental_data?.[0]?.monthly_fuel_consumption?.toLocaleString('pt-BR') || 0} L
+                    Consumo anual de combustível: {formData?.environmental_data?.[0]?.monthly_fuel_consumption?.toLocaleString('pt-BR') || 0} L
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
