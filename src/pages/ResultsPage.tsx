@@ -6,6 +6,7 @@ import LoadingCalculation from "@/components/LoadingCalculation";
 import { getFormResults } from "@/lib/submitForm";
 import { supabase } from "@/lib/supabase";
 import { calcularIndices } from "@/lib/fuzzyCalculations";
+import { getBenchmarkForState, ufLabel, type RegionalBenchmark } from "@/lib/regionalBenchmarks";
 import { ArrowRight, DollarSign, ThumbsUp, Cloud, BarChart3, Users, Leaf, TrendingUp, CheckCircle } from "lucide-react";
 
 interface FormDataResult {
@@ -24,6 +25,7 @@ interface FormDataResult {
 const ResultsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<FormDataResult | null>(null);
+  const [benchmark, setBenchmark] = useState<RegionalBenchmark | null>(null);
   const navigate = useNavigate();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -56,6 +58,11 @@ const ResultsPage = () => {
               indice_ambiental: indices.ambiental,
               indice_sustentabilidade: indices.sustentabilidade
             });
+
+            // Benchmark regional (UF do produtor, com fallback nacional)
+            const uf = formResult?.property_data?.[0]?.state || formResult?.state;
+            const bench = await getBenchmarkForState(uf);
+            setBenchmark(bench);
           }
         }
         
@@ -204,45 +211,69 @@ const ResultsPage = () => {
         </div>
 
         {/* Comparação Regional */}
-        <Card className="p-8 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Comparação Regional
-          </h2>
-          <p className="text-sm text-gray-600 mb-6">
-            Veja sua propriedade se compara às médias regionais e nacionais.
-          </p>
+        {(() => {
+          const refLabel = benchmark
+            ? (benchmark.state === 'BR' ? 'Média Nacional' : ufLabel(benchmark.state))
+            : null;
+          const axes = [
+            { label: 'Índice econômico', mine: formData?.indice_economico, ref: benchmark?.economic_index, color: '#008247' },
+            { label: 'Índice social', mine: formData?.indice_social, ref: benchmark?.social_index, color: '#3b82f6' },
+            { label: 'Índice ambiental', mine: formData?.indice_ambiental, ref: benchmark?.environmental_index, color: '#D92D20' },
+          ];
+          const hasAnyRef = axes.some((a) => a.ref != null);
+          return (
+            <Card className="p-8 mb-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                Comparação Regional
+              </h2>
+              <p className="text-sm text-gray-600 mb-6">
+                {hasAnyRef
+                  ? <>Compara seus índices com a referência de <strong>{refLabel}</strong>.</>
+                  : 'A referência regional ainda não foi configurada pela administração.'}
+              </p>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="text-sm text-gray-600 mb-2">Meu índice</div>
-              <div className="h-32 flex items-end justify-center">
-                <div className="w-20 bg-[#008247] rounded-t" style={{ height: `${formData?.indice_economico || 0}%` }}></div>
+              <div className="grid md:grid-cols-3 gap-8">
+                {axes.map((axis) => {
+                  const mine = Math.round(Number(axis.mine) || 0);
+                  const ref = axis.ref != null ? Math.round(Number(axis.ref)) : null;
+                  const delta = ref != null ? mine - ref : null;
+                  return (
+                    <div key={axis.label} className="text-center">
+                      <div className="h-36 flex items-end justify-center gap-4">
+                        {/* Você */}
+                        <div className="flex flex-col items-center justify-end h-full">
+                          <span className="text-xs font-semibold text-gray-700 mb-1">{mine}</span>
+                          <div className="w-12 rounded-t" style={{ height: `${mine}%`, backgroundColor: axis.color }}></div>
+                          <span className="text-[11px] text-gray-500 mt-1">Você</span>
+                        </div>
+                        {/* Referência */}
+                        {ref != null && (
+                          <div className="flex flex-col items-center justify-end h-full">
+                            <span className="text-xs font-semibold text-gray-500 mb-1">{ref}</span>
+                            <div className="w-12 rounded-t bg-gray-300" style={{ height: `${ref}%` }}></div>
+                            <span className="text-[11px] text-gray-500 mt-1">Ref.</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-3">{axis.label}</div>
+                      {delta != null && (
+                        <div className={`text-xs mt-1 font-medium ${delta >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {delta >= 0 ? `▲ ${delta} acima` : `▼ ${Math.abs(delta)} abaixo`} da referência
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              <div className="text-sm text-gray-600 mt-2">Índice econômico</div>
-            </div>
 
-            <div className="text-center">
-              <div className="text-sm text-gray-600 mb-2">Índice Social</div>
-              <div className="h-32 flex items-end justify-center">
-                <div className="w-20 bg-blue-500 rounded-t" style={{ height: `${formData?.indice_social || 0}%` }}></div>
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Índice social</div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-sm text-gray-600 mb-2">Índice de meu estado</div>
-              <div className="h-32 flex items-end justify-center">
-                <div className="w-20 bg-[#D92D20] rounded-t" style={{ height: `${formData?.indice_ambiental || 0}%` }}></div>
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Índice ambiental</div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end mt-4 text-sm text-gray-500">
-            <span className="mr-2">▲</span>
-            Classificação em indicadores dos: IBGE, SEEG & IGTG
-          </div>
-        </Card>
+              {hasAnyRef && (
+                <div className="flex items-center justify-end mt-4 text-xs text-gray-400">
+                  Referência ({refLabel}) configurável no painel administrativo.
+                </div>
+              )}
+            </Card>
+          );
+        })()}
 
         {/* Como melhorar */}
         <div className="bg-[#F0FAF4] rounded-3xl p-12 mb-8">
@@ -276,7 +307,7 @@ const ResultsPage = () => {
                 <div className="flex items-start gap-3">
                   <ArrowRight className="w-5 h-5 text-[#008247] mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-600">
-                    <strong className="font-semibold">{formData?.economic_data?.[0]?.financing_percentage ? `${formData.economic_data[0].financing_percentage}% do faturamento é destinado a financiamentos` : '4% do faturamento é destinado a financiamentos'}</strong>
+                    <strong className="font-semibold">{`${formData?.economic_data?.[0]?.financing_percentage || 0}% do faturamento é destinado a financiamentos`}</strong>
                   </span>
                 </div>
                 <div className="flex items-start gap-3">

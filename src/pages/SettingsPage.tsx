@@ -24,6 +24,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import {
+  getAllBenchmarks,
+  saveBenchmarks,
+  ufLabel,
+  type RegionalBenchmark,
+} from '@/lib/regionalBenchmarks';
 
 interface ProfileData {
   name: string;
@@ -31,14 +37,24 @@ interface ProfileData {
   phone: string;
 }
 
+type BenchmarkField =
+  | 'economic_index'
+  | 'social_index'
+  | 'environmental_index'
+  | 'sustainability_index';
+
 const SettingsPage = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, updatePassword, refreshProfile } = useAuth();
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'account' | 'password'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'password' | 'benchmarks'>('account');
   const [loading, setLoading] = useState(false);
+
+  // Benchmarks regionais (Comparação Regional)
+  const [benchmarks, setBenchmarks] = useState<RegionalBenchmark[]>([]);
+  const [benchmarksLoading, setBenchmarksLoading] = useState(false);
 
   // Profile form state
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -172,6 +188,58 @@ const SettingsPage = () => {
       toast({
         title: 'Erro ao alterar senha',
         description: 'Não foi possível alterar sua senha',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carrega benchmarks ao abrir a aba (uma vez)
+  useEffect(() => {
+    if (activeTab !== 'benchmarks' || benchmarks.length > 0) return;
+    const load = async () => {
+      setBenchmarksLoading(true);
+      const rows = await getAllBenchmarks();
+      // Nacional ('BR') primeiro, depois UFs em ordem alfabética
+      rows.sort((a, b) =>
+        a.state === 'BR' ? -1 : b.state === 'BR' ? 1 : a.state.localeCompare(b.state)
+      );
+      setBenchmarks(rows);
+      setBenchmarksLoading(false);
+    };
+    load();
+  }, [activeTab]);
+
+  const handleBenchmarkChange = (
+    state: string,
+    field: BenchmarkField,
+    value: string
+  ) => {
+    const parsed = value === '' ? null : Math.max(0, Math.min(100, Number(value)));
+    setBenchmarks((prev) =>
+      prev.map((b) =>
+        b.state === state
+          ? { ...b, [field]: parsed === null || isNaN(parsed) ? null : parsed }
+          : b
+      )
+    );
+  };
+
+  const handleSaveBenchmarks = async () => {
+    try {
+      setLoading(true);
+      const result = await saveBenchmarks(benchmarks, user?.id);
+      if (!result.success) throw new Error(result.error);
+      toast({
+        title: 'Benchmarks salvos!',
+        description: 'As médias de referência foram atualizadas.',
+      });
+    } catch (error: any) {
+      console.error('Erro ao salvar benchmarks:', error);
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Não foi possível salvar os benchmarks regionais.',
         variant: 'destructive',
       });
     } finally {
@@ -318,10 +386,21 @@ const SettingsPage = () => {
               >
                 Alterar senha
               </button>
+              <button
+                onClick={() => setActiveTab('benchmarks')}
+                className={`pb-4 px-4 font-medium transition-colors ${
+                  activeTab === 'benchmarks'
+                    ? 'text-[#00703c] border-b-2 border-[#00703c]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Comparação Regional
+              </button>
             </div>
           </div>
 
           {/* Tab Content */}
+          {activeTab !== 'benchmarks' && (
           <Card className="max-w-2xl">
             <CardContent className="pt-6">
               {/* Aba: Informações da conta */}
@@ -463,6 +542,90 @@ const SettingsPage = () => {
               )}
             </CardContent>
           </Card>
+          )}
+
+          {/* Aba: Comparação Regional (benchmarks por UF) */}
+          {activeTab === 'benchmarks' && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600">
+                    Defina as <strong>médias de referência</strong> (0–100) exibidas na
+                    seção "Comparação Regional" do resultado. A linha{' '}
+                    <strong>Média Nacional</strong> é usada quando o estado do produtor
+                    não tiver valores preenchidos. Campos vazios não aparecem na
+                    comparação.
+                  </p>
+                  <p className="mt-2 text-xs text-amber-700">
+                    Estes valores são apenas comparativos no resultado — não alteram o
+                    cálculo do índice (metodologia fuzzy da Embrapa).
+                  </p>
+                </div>
+
+                {benchmarksLoading ? (
+                  <p className="text-sm text-gray-500 py-8 text-center">Carregando…</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-gray-500 border-b">
+                          <th className="py-2 pr-4 font-medium">Estado</th>
+                          <th className="py-2 px-2 font-medium">Econômico</th>
+                          <th className="py-2 px-2 font-medium">Social</th>
+                          <th className="py-2 px-2 font-medium">Ambiental</th>
+                          <th className="py-2 px-2 font-medium">Sustentab.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {benchmarks.map((b) => (
+                          <tr
+                            key={b.state}
+                            className={`border-b ${b.state === 'BR' ? 'bg-green-50' : ''}`}
+                          >
+                            <td className="py-2 pr-4 whitespace-nowrap font-medium text-gray-700">
+                              {ufLabel(b.state)}
+                            </td>
+                            {(
+                              [
+                                'economic_index',
+                                'social_index',
+                                'environmental_index',
+                                'sustainability_index',
+                              ] as BenchmarkField[]
+                            ).map((field) => (
+                              <td key={field} className="py-1 px-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={b[field] ?? ''}
+                                  onChange={(e) =>
+                                    handleBenchmarkChange(b.state, field, e.target.value)
+                                  }
+                                  placeholder="—"
+                                  className="w-20 h-9"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div className="flex justify-end mt-6">
+                  <Button
+                    onClick={handleSaveBenchmarks}
+                    className="bg-[#00703c] hover:bg-[#005a30]"
+                    disabled={loading || benchmarksLoading}
+                  >
+                    {loading ? 'Salvando…' : 'Salvar benchmarks'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* User Info Footer */}
           <div className="mt-8 flex items-center gap-3 text-sm">
