@@ -193,7 +193,7 @@ const ResultsPage = () => {
                   <div className="w-10 h-10 bg-[#D92D20] rounded-full flex items-center justify-center">
                     <Cloud className="w-5 h-5 text-white" />
                   </div>
-                  <span className="text-3xl font-bold text-[#D92D20]">{formData?.indice_ambiental ? `${Math.round(formData.indice_ambiental)}/100` : '0/100'}</span>
+                  <span className="text-3xl font-bold text-[#D92D20]">{formData?.indice_ambiental ? Math.round(formData.indice_ambiental) : 0}</span>
                   <span className="text-gray-500">/100</span>
                 </div>
                 <div className="text-sm text-gray-600">Índice ambiental</div>
