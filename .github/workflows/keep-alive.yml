@@ -1,0 +1,18 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Roda automaticamente a cada 3 dias às 06:00 AM (Horário de Brasília)
+    # Mantém o banco ativo sem você precisar mexer em nada
+    - cron: '0 9 */3 * *'
+  workflow_dispatch: # Permite que você clique em um botão no GitHub para testar manualmente
+
+jobs:
+  ping_supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fazendo o Ping no Supabase
+        run: |
+          curl -X GET "https://xzgwfluyzvwjjqtbwvnt.supabase.co/rest/v1/" \
+          -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6Z3dmbHV5enZ3ampxdGJ3dm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMDI0MDUsImV4cCI6MjA5NjY3ODQwNX0.gLDjsPoE7j5bPLtB7Nuv9tr5elxRBWePryLAiGhO1uw" \
+          -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6Z3dmbHV5enZ3ampxdGJ3dm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMDI0MDUsImV4cCI6MjA5NjY3ODQwNX0.gLDjsPoE7j5bPLtB7Nuv9tr5elxRBWePryLAiGhO1uw"
